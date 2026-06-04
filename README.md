@@ -10,6 +10,7 @@ Each game lives in its own subfolder under `games/` and is a self-contained HTML
 | --- | --- | --- |
 | **agent-debug** | [`games/agent-debug/`](games/agent-debug) | Diagnosing bad outputs in production agents. 38 scenarios across 5 difficulty tiers, including chained-fix incident response. |
 | **eval-lab** | [`games/eval-lab/`](games/eval-lab) | Building evaluation infrastructure across an agent maturity ladder. Sim/tycoon loop covering 23 metrics from exact-match to multi-agent cascade analysis. |
+| **lethal-trifecta** | [`games/lethal-trifecta/`](games/lethal-trifecta) | Agent security. Ship an agent without making it exploitable by breaking the lethal trifecta — private data + untrusted content + exfiltration — across 8 constraint-puzzle levels. |
 
 ## Running locally
 
@@ -18,26 +19,33 @@ Each game is a single `index.html` file. Open it directly in a browser:
 ```
 open games/agent-debug/index.html
 open games/eval-lab/index.html
+open games/lethal-trifecta/index.html
 ```
 
-Or serve the whole repo for clean URLs:
+Or serve the whole repo for clean URLs (and a landing page at the root):
 
 ```
 python3 -m http.server 8000
-# then visit http://localhost:8000/games/agent-debug/
+# then visit http://localhost:8000/             (landing page)
+#       or  http://localhost:8000/games/agent-debug/
 #       or  http://localhost:8000/games/eval-lab/
+#       or  http://localhost:8000/games/lethal-trifecta/
 ```
 
 ## Repo layout
 
 ```
 agentic-games/
+├── index.html              # landing page linking to every game
 ├── README.md
 └── games/
     ├── agent-debug/
     │   ├── index.html      # the game
     │   └── README.md       # game-specific notes, design rationale
-    └── eval-lab/
+    ├── eval-lab/
+    │   ├── index.html
+    │   └── README.md
+    └── lethal-trifecta/
         ├── index.html
         └── README.md
 ```
@@ -46,7 +54,8 @@ agentic-games/
 
 - [ ] Evals for `agent-debug` (scenario coverage, difficulty calibration, answer-key audits)
 - [ ] Expand `eval-lab` scenario pool and add boss-fight incidents with conflicting metrics
-- [ ] Additional games covering other agent failure modes
+- [ ] Sandbox/attacker modes for `lethal-trifecta`
+- [ ] Additional games covering other agent failure modes (skills, harness patterns, reward hacking)
 
 ## License
 

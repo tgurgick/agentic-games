@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lethal Trifecta — Agentic Games</title>
+  <meta name="description" content="A security puzzle about the lethal trifecta: when an agent combines private-data access, untrusted content, and an exfiltration channel, it can be turned against you. Break the trifecta without breaking the product." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    :root {
+      --bg: #0a0e0a;
+      --bg-2: #0f1410;
+      --panel: #11171250;
+      --panel-solid: #0e140e;
+      --phosphor: #7fff9f;
+      --phosphor-dim: #4a9d5e;
+      --phosphor-glow: #7fff9f40;
+      --amber: #ffb84a;
+      --amber-dim: #7a5a1f;
+      --red: #ff6b6b;
+      --red-glow: #ff6b6b40;
+      --cyan: #6fe0ff;
+      --grid: #1f2a1f;
+      --border: #2a3a2c;
+      --text: #c8e6c8;
+      --muted: #5a6e5a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      overflow-x: hidden;
+      min-height: 100vh;
+    }
+    #root { min-height: 100vh; }
+    .app { min-height: 100vh; padding: 18px; max-width: 1320px; margin: 0 auto; position: relative; z-index: 1; }
+
+    .grid-bg {
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(var(--grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+      background-size: 40px 40px;
+      opacity: 0.22; z-index: 0; pointer-events: none;
+      mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
+    }
+    .scanlines {
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(to bottom, transparent 0, transparent 2px, rgba(127,255,159,0.025) 2px, rgba(127,255,159,0.025) 4px);
+      pointer-events: none; z-index: 2;
+    }
+
+    /* Boot */
+    .boot-screen { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 10; cursor: pointer; }
+    .boot-inner { font-family: 'Space Mono', monospace; color: var(--phosphor); text-shadow: 0 0 8px var(--phosphor-glow); font-size: 15px; line-height: 1.7; max-width: 600px; padding: 24px; }
+    .boot-line { white-space: pre-wrap; }
+    .boot-cursor { display: inline-block; animation: blink 0.9s infinite; }
+    @keyframes blink { 0%,49%{opacity:1;} 50%,100%{opacity:0;} }
+
+    /* Header */
+    .header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding: 14px 18px; border: 1px solid var(--border); border-radius: 2px; background: var(--panel); backdrop-filter: blur(6px); margin-bottom: 12px; }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-dot { width: 10px; height: 10px; background: var(--red); border-radius: 50%; box-shadow: 0 0 10px var(--red); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1; transform: scale(1);} 50%{opacity:0.5; transform: scale(0.85);} }
+    .brand-title { font-weight: 800; font-size: 17px; letter-spacing: 1px; color: var(--text); }
+    .brand-title b { color: var(--red); }
+    .brand-sub { color: var(--muted); font-size: 11px; letter-spacing: 2px; }
+    .hud { display: flex; gap: 18px; align-items: center; font-size: 12px; }
+    .hud-item { text-align: right; }
+    .hud-item .k { color: var(--muted); font-size: 10px; letter-spacing: 1px; }
+    .hud-item .v { color: var(--phosphor); font-weight: 700; font-size: 15px; }
+
+    .layout { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 12px; align-items: start; }
+    @media (max-width: 920px){ .layout { grid-template-columns: 1fr; } }
+
+    .panel { border: 1px solid var(--border); border-radius: 2px; background: var(--panel); backdrop-filter: blur(6px); padding: 14px; margin-bottom: 12px; }
+    .panel-title { font-size: 11px; letter-spacing: 2px; color: var(--phosphor-dim); text-transform: uppercase; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+
+    /* Scenario */
+    .level-tag { color: var(--amber); font-weight: 700; font-size: 12px; letter-spacing: 1px; }
+    .scenario-title { font-size: 17px; font-weight: 800; color: var(--text); margin: 4px 0 8px; }
+    .scenario-brief { font-size: 13px; line-height: 1.6; color: var(--text); }
+    .scenario-brief .hl { color: var(--cyan); }
+
+    /* Capability chips */
+    .cap-group-label { font-size: 10px; letter-spacing: 1px; color: var(--muted); margin: 12px 0 6px; text-transform: uppercase; }
+    .caps { display: flex; flex-wrap: wrap; gap: 8px; }
+    .cap { display: flex; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 3px; padding: 7px 10px; font-size: 12px; cursor: pointer; user-select: none; background: var(--bg-2); transition: all .12s; position: relative; }
+    .cap:hover { border-color: var(--phosphor-dim); }
+    .cap.on { border-color: var(--phosphor); background: #122016; box-shadow: 0 0 0 1px var(--phosphor-glow) inset; }
+    .cap.locked { cursor: default; border-color: var(--phosphor); background: #122016; opacity: 0.95; }
+    .cap.locked:hover { border-color: var(--phosphor); }
+    .cap .legdots { display: flex; gap: 3px; }
+    .legdot { width: 7px; height: 7px; border-radius: 50%; opacity: 0.85; }
+    .legdot.private { background: var(--cyan); }
+    .legdot.untrusted { background: var(--amber); }
+    .legdot.exfil { background: var(--red); }
+    .cap .lock { font-size: 9px; color: var(--phosphor-dim); }
+
+    /* Mitigations */
+    .mit { display: flex; gap: 9px; align-items: flex-start; border: 1px solid var(--border); border-radius: 3px; padding: 9px 11px; font-size: 12px; cursor: pointer; user-select: none; background: var(--bg-2); transition: all .12s; margin-bottom: 7px; }
+    .mit:hover { border-color: var(--amber); }
+    .mit.on { border-color: var(--amber); background: #1c160a; }
+    .mit .box { width: 14px; height: 14px; border: 1px solid var(--amber-dim); border-radius: 2px; margin-top: 1px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; color: var(--amber); font-size: 11px; }
+    .mit.on .box { background: var(--amber); color: #1a1206; border-color: var(--amber); }
+    .mit .mtitle { color: var(--text); font-weight: 700; }
+    .mit .mdesc { color: var(--muted); font-size: 11px; line-height: 1.45; margin-top: 2px; }
+    .mit.invalid.on { border-color: var(--red); background: #1c0d0d; }
+    .mit.invalid.on .box { background: var(--red); border-color: var(--red); }
+
+    /* Trifecta core viz */
+    .core-wrap { display: flex; flex-direction: column; align-items: center; }
+    .core-svg { width: 100%; max-width: 360px; height: auto; }
+    .node-ring { fill: none; stroke-width: 2.5; transition: all .25s; }
+    .node-fill { transition: all .25s; }
+    .edge { stroke-width: 2; fill: none; transition: all .25s; }
+    .corelabel { font-family: 'JetBrains Mono', monospace; font-weight: 800; }
+    .corelabel-sub { font-family: 'JetBrains Mono', monospace; }
+
+    .status-line { font-size: 13px; font-weight: 800; letter-spacing: 1px; text-align: center; margin-top: 6px; }
+    .status-lethal { color: var(--red); text-shadow: 0 0 10px var(--red-glow); }
+    .status-safe { color: var(--phosphor); text-shadow: 0 0 10px var(--phosphor-glow); }
+    .status-idle { color: var(--muted); }
+    @keyframes danger-pulse { 0%,100%{opacity:1;} 50%{opacity:0.45;} }
+    .pulsing { animation: danger-pulse 1.1s infinite; }
+
+    /* leg readout */
+    .legrows { margin-top: 10px; }
+    .legrow { display: flex; align-items: center; gap: 10px; font-size: 12px; padding: 6px 0; border-top: 1px dashed var(--border); }
+    .legrow:first-child { border-top: none; }
+    .legname { width: 92px; font-weight: 700; letter-spacing: .5px; }
+    .legname.private { color: var(--cyan); }
+    .legname.untrusted { color: var(--amber); }
+    .legname.exfil { color: var(--red); }
+    .legstate { font-size: 11px; padding: 2px 8px; border-radius: 2px; border: 1px solid var(--border); }
+    .legstate.live { color: var(--red); border-color: var(--red); }
+    .legstate.guarded { color: var(--amber); border-color: var(--amber-dim); }
+    .legstate.clear { color: var(--phosphor-dim); border-color: var(--phosphor-dim); }
+    .legwhy { color: var(--muted); font-size: 11px; flex: 1; }
+
+    /* Attack / feedback */
+    .attack { border: 1px solid var(--red); background: #160c0c; border-radius: 2px; padding: 12px; font-size: 12.5px; line-height: 1.6; }
+    .attack .atitle { color: var(--red); font-weight: 800; letter-spacing: 1px; margin-bottom: 6px; }
+    .attack .seg { color: var(--cyan); }
+    .win { border: 1px solid var(--phosphor); background: #0d1a10; border-radius: 2px; padding: 12px; font-size: 12.5px; line-height: 1.6; }
+    .win .wtitle { color: var(--phosphor); font-weight: 800; letter-spacing: 1px; margin-bottom: 6px; }
+    .neutral-msg { color: var(--muted); font-size: 12px; line-height: 1.6; }
+    .warn { color: var(--amber); }
+
+    /* buttons */
+    .btnrow { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    button.btn { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; letter-spacing: .5px; padding: 9px 14px; border-radius: 2px; border: 1px solid var(--border); background: var(--bg-2); color: var(--text); cursor: pointer; transition: all .12s; }
+    button.btn:hover { border-color: var(--phosphor-dim); }
+    button.btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    button.btn.primary { border-color: var(--phosphor); color: var(--phosphor); background: #102016; }
+    button.btn.primary:hover { background: #163020; }
+    button.btn.ghost { color: var(--muted); }
+
+    /* Field manual */
+    .fm { font-size: 12px; line-height: 1.65; color: var(--text); }
+    .fm h4 { color: var(--phosphor-dim); font-size: 11px; letter-spacing: 1px; margin: 10px 0 4px; text-transform: uppercase; }
+    .fm code { color: var(--amber); background: #1a160a; padding: 1px 5px; border-radius: 2px; font-size: 11px; }
+    .fm a { color: var(--cyan); }
+    details > summary { cursor: pointer; color: var(--phosphor-dim); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; list-style: none; }
+    details > summary::-webkit-details-marker { display: none; }
+    details > summary::before { content: '▸ '; }
+    details[open] > summary::before { content: '▾ '; }
+
+    .progress-dots { display: flex; gap: 5px; }
+    .pdot { width: 9px; height: 9px; border-radius: 50%; border: 1px solid var(--border); }
+    .pdot.done { background: var(--phosphor); border-color: var(--phosphor); box-shadow: 0 0 6px var(--phosphor-glow); }
+    .pdot.cur { border-color: var(--amber); box-shadow: 0 0 6px var(--amber); }
+
+    .legend { display: flex; gap: 14px; font-size: 10px; color: var(--muted); margin-top: 8px; flex-wrap: wrap; }
+    .legend span { display: flex; align-items: center; gap: 5px; }
+
+    .footer-note { text-align: center; color: var(--muted); font-size: 11px; margin: 18px 0 8px; }
+    .footer-note a { color: var(--phosphor-dim); }
+  </style>
+</head>
+<body>
+  <div class="grid-bg"></div>
+  <div class="scanlines"></div>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useMemo, useEffect } = React;
+
+    const LEGS = {
+      private:   { label: 'Private Data',      short: 'PRIVATE',   color: 'var(--cyan)' },
+      untrusted: { label: 'Untrusted Content', short: 'UNTRUSTED', color: 'var(--amber)' },
+      exfil:     { label: 'Exfiltration',      short: 'EXFIL',     color: 'var(--red)' },
+    };
+
+    // role fragments power the generated breach narrative
+    const CAPS = [
+      // private
+      { id:'inbox',  name:'Read user inbox',          legs:['private'],  loot:'your private email' },
+      { id:'wiki',   name:'Read internal wiki/docs',  legs:['private'],  loot:'confidential internal docs' },
+      { id:'crm',    name:'Query customer database',  legs:['private'],  loot:'customer records' },
+      { id:'secrets',name:'Read cloud secrets/creds', legs:['private'],  loot:'API keys and secrets' },
+      { id:'repo',   name:'Read private source repo', legs:['private'],  loot:'proprietary source code' },
+      // untrusted
+      { id:'email_in', name:'Read incoming emails',     legs:['untrusted'], inject:'a malicious incoming email' },
+      { id:'web',      name:'Browse arbitrary web',     legs:['untrusted'], inject:'a booby-trapped web page' },
+      { id:'rag',      name:'Ingest user-uploaded docs',legs:['untrusted'], inject:'a poisoned uploaded document', hidden:true },
+      { id:'issues',   name:'Read public issue tracker',legs:['untrusted'], inject:'a public issue comment', hidden:true },
+      // exfil
+      { id:'send_email',  name:'Send email',                 legs:['exfil'], ship:'emails it to the attacker' },
+      { id:'webhook',     name:'Call external webhook (POST)',legs:['exfil'], ship:'POSTs it to an attacker server' },
+      { id:'img',         name:'Render markdown images',     legs:['exfil'], ship:'leaks it inside an image URL the attacker logs', hidden:true },
+      { id:'post_public', name:'Post to public channel',     legs:['exfil'], ship:'posts it to a public channel' },
+      // neutral
+      { id:'calc',      name:'Calculator',          legs:[] },
+      { id:'summarize', name:'Summarize given text',legs:[] },
+      { id:'translate', name:'Translate text',      legs:[] },
+    ];
+    const CAP = Object.fromEntries(CAPS.map(c => [c.id, c]));
+
+    const MITIGATIONS = [
+      { id:'hitl',      leg:'exfil',     title:'Human-in-the-loop approval',
+        desc:'A person approves every outbound action before it fires. The product still works (with a click); an attacker can’t auto-exfiltrate.',
+        invalid:()=>null },
+      { id:'allowlist', leg:'exfil',     title:'Destination allowlist',
+        desc:'Outbound only to pre-approved recipients/domains. Blocks attacker-chosen URLs and image beacons.',
+        invalid:(lvl)=> lvl.arbitraryExfil ? 'Product needs to reach arbitrary destinations — an allowlist breaks it.' : null },
+      { id:'quarantine',leg:'untrusted', title:'Quarantine untrusted content (dual-LLM)',
+        desc:'Untrusted text is processed by a sandboxed model with no tools/data. Its output is treated as data, never as instructions.',
+        invalid:()=>null },
+      { id:'gating',    leg:'private',   title:'Capability gating',
+        desc:'Once a run has touched untrusted content, private-data tools are disabled for that run. Breaks the link to sensitive data.',
+        invalid:(lvl)=> lvl.chains ? 'This product must use private data to answer untrusted requests — gating that path breaks it.' : null },
+      { id:'minimize',  leg:'private',   title:'Data minimization (least privilege)',
+        desc:'Don’t give the agent private-data access at all. The cheapest fix — when the product doesn’t truly need it.',
+        invalid:(lvl)=> lvl.needs.includes('private') ? 'This product genuinely needs private data — you can’t remove it.' : null },
+    ];
+    const MIT = Object.fromEntries(MITIGATIONS.map(m => [m.id, m]));
+
+    const LEVELS = [
+      {
+        id:1, title:'Inbox Digest',
+        brief:[['plain','Build an assistant that reads the user’s '],['hl','unread email'],['plain',' and shows a '],['hl','summary in-app'],['plain','. Nothing leaves the app.']],
+        required:['inbox','summarize'], pool:['web','send_email','calc'], needs:['private'],
+        teach:'One leg alone is safe. Private data with no untrusted input and no way out can’t be turned against you. Watch what happens if you add a web tool and a send tool.',
+      },
+      {
+        id:2, title:'Support Triage Bot', chains:true,
+        brief:[['plain','Read '],['hl','incoming support emails'],['plain',', look the sender up in the '],['hl','CRM'],['plain',', and '],['hl','email them a reply'],['plain','.']],
+        required:['email_in','crm','send_email'], pool:['calc'], needs:['untrusted','private','exfil'],
+        teach:'All three legs are required by the product — you can’t just drop one. You must add a guardrail. Note: this bot must use private data in response to untrusted email, so capability-gating that path would break it.',
+      },
+      {
+        id:3, title:'Rich-Reply Helpdesk',
+        brief:[['plain','An assistant that reads '],['hl','incoming emails'],['plain',', answers from the '],['hl','internal wiki'],['plain',', and sends '],['hl','richly formatted replies with images'],['plain','.']],
+        required:['email_in','wiki','img'], pool:['calc','summarize'], needs:['untrusted','private','exfil'],
+        teach:'“Render markdown images” looks harmless — but fetching an attacker-controlled image URL is an exfiltration channel. Hidden legs are where real breaches live.',
+      },
+      {
+        id:4, title:'Internal Knowledge Bot',
+        brief:[['plain','Answers staff questions from the '],['hl','internal wiki'],['plain',', lets users '],['hl','upload PDFs'],['plain',' for context, and '],['hl','posts answers to a public channel'],['plain','.']],
+        required:['wiki','rag','post_public'], pool:['calc','translate'], needs:['untrusted','private','exfil'],
+        teach:'An uploaded document is untrusted content — an attacker can put instructions in the PDF. Anything a user (or attacker) can feed the model counts as the untrusted leg.',
+      },
+      {
+        id:5, title:'Autonomous Personal Agent', chains:true,
+        brief:[['plain','Your personal agent: reads your '],['hl','inbox'],['plain',', '],['hl','browses the web'],['plain',' to research, and '],['hl','sends email'],['plain',' on your behalf.']],
+        required:['inbox','web','send_email'], pool:['calc'], needs:['untrusted','private','exfil'],
+        teach:'Several guardrails can break the trifecta here. But the agent must read private mail and send mail, so removing private data or blocking outbound entirely would break the product. Pick a mitigation that keeps it working.',
+      },
+      {
+        id:6, title:'CI Coding Assistant',
+        brief:[['plain','Reads the '],['hl','private repo & secrets'],['plain',', triages '],['hl','public GitHub issues'],['plain',', and can '],['hl','call CI webhooks'],['plain','.']],
+        required:['secrets','issues','webhook'], pool:['calc','repo'], needs:['untrusted','private','exfil'], arbitraryExfil:true,
+        teach:'Each tool is individually reasonable; together they’re the trifecta. The webhook reaches arbitrary CI endpoints, so a destination allowlist won’t fit — you need a different leg to break.',
+      },
+      {
+        id:7, title:'Meeting Notes Bot',
+        brief:[['plain','Summarizes '],['hl','uploaded meeting transcripts'],['plain',' and '],['hl','posts the summary to a public channel'],['plain','. A teammate suggests also wiring in '],['hl','CRM access'],['plain'," “for context.”"]],
+        required:['rag','post_public'], pool:['crm','calc','summarize'], needs:['untrusted','exfil'],
+        teach:'Only two legs are required — this is already safe. The trap is the tempting CRM access. The strongest mitigation is to never combine in the first place: least privilege beats any guardrail.',
+      },
+      {
+        id:8, title:'Capstone: Sales Copilot', chains:true,
+        brief:[['plain','Reads '],['hl','inbound prospect emails'],['plain',', enriches from the '],['hl','CRM'],['plain',', drafts replies with '],['hl','rendered images'],['plain',', and '],['hl','sends them'],['plain','. Two separate exfil channels, one chained private lookup — lock it down.']],
+        required:['email_in','crm','img','send_email'], pool:['calc'], needs:['untrusted','private','exfil'],
+        teach:'Two exfil channels (image render + send email) means one outbound guardrail must cover both, or you break a different leg. Because private lookups are chained off untrusted email, gating won’t work here.',
+      },
+    ];
+
+    function legsFromCaps(ids){
+      const set = { private:false, untrusted:false, exfil:false };
+      ids.forEach(id => (CAP[id].legs||[]).forEach(l => set[l] = true));
+      return set;
+    }
+
+    function Node({cx, cy, label, sub, state}){
+      // state: 'idle' | 'live' | 'guarded'
+      const color = state==='live' ? 'var(--red)' : state==='guarded' ? 'var(--amber)' : 'var(--phosphor-dim)';
+      const fill  = state==='live' ? 'rgba(255,107,107,0.16)' : state==='guarded' ? 'rgba(255,184,74,0.12)' : 'rgba(127,255,159,0.04)';
+      return (
+        <g className={state==='live' ? 'pulsing' : ''}>
+          <circle className="node-fill" cx={cx} cy={cy} r="30" fill={fill} />
+          <circle className="node-ring" cx={cx} cy={cy} r="30" stroke={color}
+                  strokeDasharray={state==='guarded' ? '4 4' : 'none'} />
+          <text className="corelabel-sub" x={cx} y={cy-2} textAnchor="middle" fontSize="10" fontWeight="800" fill={color}>{label}</text>
+          <text className="corelabel-sub" x={cx} y={cy+11} textAnchor="middle" fontSize="8" fill={color} opacity="0.85">{sub}</text>
+        </g>
+      );
+    }
+
+    function Trifecta({legState}){
+      const lethal = ['private','untrusted','exfil'].every(l => legState[l]==='live');
+      const pts = { private:[180,52], untrusted:[58,222], exfil:[302,222], core:[180,165] };
+      const edgeColor = lethal ? 'var(--red)' : 'var(--border)';
+      function nodeSub(l){
+        const s = legState[l];
+        return s==='live' ? 'ACTIVE' : s==='guarded' ? 'GUARDED' : 'inactive';
+      }
+      const coreColor = lethal ? 'var(--red)' : 'var(--phosphor-dim)';
+      return (
+        <svg className="core-svg" viewBox="0 0 360 270">
+          {/* edges to core */}
+          {['private','untrusted','exfil'].map(l => {
+            const live = legState[l]==='live';
+            return <line key={l} className="edge" x1={pts[l][0]} y1={pts[l][1]} x2={pts.core[0]} y2={pts.core[1]}
+                         stroke={lethal && live ? 'var(--red)' : live ? 'var(--amber-dim)' : 'var(--border)'} />;
+          })}
+          {/* core */}
+          <g className={lethal ? 'pulsing' : ''}>
+            <circle cx={pts.core[0]} cy={pts.core[1]} r="26"
+                    fill={lethal ? 'rgba(255,107,107,0.22)' : 'rgba(127,255,159,0.05)'} stroke={coreColor} strokeWidth="2.5" />
+            <text className="corelabel" x={pts.core[0]} y={pts.core[1]+1} textAnchor="middle" fontSize="11" fill={coreColor}>{lethal ? 'LETHAL' : 'CORE'}</text>
+            <text className="corelabel-sub" x={pts.core[0]} y={pts.core[1]+13} textAnchor="middle" fontSize="7" fill={coreColor} opacity="0.8">{lethal ? 'breach!' : 'agent'}</text>
+          </g>
+          {/* nodes */}
+          <Node cx={pts.private[0]}   cy={pts.private[1]}   label="PRIVATE"   sub={nodeSub('private')}   state={legState.private} />
+          <Node cx={pts.untrusted[0]} cy={pts.untrusted[1]} label="UNTRUSTED" sub={nodeSub('untrusted')} state={legState.untrusted} />
+          <Node cx={pts.exfil[0]}     cy={pts.exfil[1]}     label="EXFIL"     sub={nodeSub('exfil')}     state={legState.exfil} />
+        </svg>
+      );
+    }
+
+    function App(){
+      const [booted, setBooted] = useState(false);
+      const [idx, setIdx] = useState(0);
+      const [selected, setSelected] = useState([]);
+      const [mits, setMits] = useState([]);
+      const [solved, setSolved] = useState(()=>new Set());
+
+      const level = LEVELS[idx];
+
+      // reset board on level change
+      useEffect(()=>{
+        setSelected([...level.required]);
+        setMits([]);
+      }, [idx]);
+
+      const active = useMemo(()=> Array.from(new Set([...level.required, ...selected])), [selected, level]);
+      const rawLegs = useMemo(()=> legsFromCaps(active), [active]);
+
+      // which legs are mitigated (and valid)
+      const mitByLeg = useMemo(()=>{
+        const m = { private:null, untrusted:null, exfil:null };
+        mits.forEach(id => { const mm = MIT[id]; if(!mm.invalid(level)) m[mm.leg] = id; });
+        return m;
+      }, [mits, level]);
+
+      const legState = useMemo(()=>{
+        const s = {};
+        ['private','untrusted','exfil'].forEach(l => {
+          if(!rawLegs[l]) s[l] = 'idle';
+          else if(mitByLeg[l]) s[l] = 'guarded';
+          else s[l] = 'live';
+        });
+        return s;
+      }, [rawLegs, mitByLeg]);
+
+      const lethal = ['private','untrusted','exfil'].every(l => legState[l]==='live');
+      const reqMet = level.required.every(id => active.includes(id));
+      const invalidMits = mits.filter(id => MIT[id].invalid(level));
+      const win = reqMet && !lethal && invalidMits.length===0;
+
+      // mark solved
+      useEffect(()=>{ if(win){ setSolved(prev => { if(prev.has(level.id)) return prev; const n = new Set(prev); n.add(level.id); return n; }); } }, [win, level.id]);
+
+      // rating: how clean
+      const usefulMits = mits.filter(id => !MIT[id].invalid(level));
+      const extraCaps = active.filter(id => !level.required.includes(id) && (CAP[id].legs||[]).length>0);
+
+      function toggleCap(id){
+        if(level.required.includes(id)) return;
+        setSelected(prev => prev.includes(id) ? prev.filter(x=>x!==id) : [...prev, id]);
+      }
+      function toggleMit(id){
+        setMits(prev => prev.includes(id) ? prev.filter(x=>x!==id) : [...prev, id]);
+      }
+      function reset(){ setSelected([...level.required]); setMits([]); }
+
+      // build breach narrative
+      const breach = useMemo(()=>{
+        if(!lethal) return null;
+        const pick = (leg, field) => { const c = active.map(id=>CAP[id]).find(c => (c.legs||[]).includes(leg) && c[field]); return c; };
+        const u = pick('untrusted','inject');
+        const p = pick('private','loot');
+        const e = pick('exfil','ship');
+        return { u, p, e };
+      }, [lethal, active]);
+
+      // displayed capability sets
+      const visibleCaps = useMemo(()=> Array.from(new Set([...level.required, ...level.pool])), [level]);
+      const byLegGroup = {
+        private: visibleCaps.filter(id => CAP[id].legs.includes('private')),
+        untrusted: visibleCaps.filter(id => CAP[id].legs.includes('untrusted')),
+        exfil: visibleCaps.filter(id => CAP[id].legs.includes('exfil')),
+        neutral: visibleCaps.filter(id => CAP[id].legs.length===0),
+      };
+
+      function CapChip({id}){
+        const c = CAP[id];
+        const locked = level.required.includes(id);
+        const on = active.includes(id);
+        return (
+          <div className={'cap ' + (locked ? 'locked ' : '') + (on && !locked ? 'on' : '')}
+               onClick={()=>toggleCap(id)} title={locked ? 'Required by the product' : 'Optional capability'}>
+            <span>{c.name}</span>
+            <span className="legdots">{c.legs.map(l => <span key={l} className={'legdot '+l}></span>)}</span>
+            {locked && <span className="lock">req</span>}
+          </div>
+        );
+      }
+
+      if(!booted){
+        return (
+          <div className="boot-screen" onClick={()=>setBooted(true)}>
+            <div className="boot-inner">
+              <div className="boot-line">{'> LETHAL TRIFECTA // agent security range'}</div>
+              <div className="boot-line">{'> loading threat model ............ ok'}</div>
+              <div className="boot-line">{'> three legs: PRIVATE DATA · UNTRUSTED CONTENT · EXFILTRATION'}</div>
+              <div className="boot-line">{'> objective: ship the product, never light all three'}</div>
+              <div className="boot-line" style={{marginTop:'14px', color:'var(--muted)'}}>{'  [ click anywhere to begin ]'}</div>
+              <span className="boot-cursor">_</span>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="app">
+          <div className="header">
+            <div className="brand">
+              <div className="brand-dot"></div>
+              <div>
+                <div className="brand-title">LETHAL <b>TRIFECTA</b></div>
+                <div className="brand-sub">AGENT SECURITY RANGE</div>
+              </div>
+            </div>
+            <div className="hud">
+              <div className="hud-item"><div className="k">SOLVED</div><div className="v">{solved.size}/{LEVELS.length}</div></div>
+              <div className="progress-dots">
+                {LEVELS.map((l,i)=> <div key={l.id} className={'pdot ' + (solved.has(l.id)?'done ':'') + (i===idx?'cur':'')} title={l.title}></div>)}
+              </div>
+            </div>
+          </div>
+
+          <div className="layout">
+            {/* LEFT: scenario + build */}
+            <div>
+              <div className="panel">
+                <div className="panel-title"><span>Deployment Brief</span><span className="level-tag">LVL {level.id} / {LEVELS.length}</span></div>
+                <div className="scenario-title">{level.title}</div>
+                <div className="scenario-brief">
+                  {level.brief.map((seg,i)=> seg[0]==='hl' ? <span key={i} className="hl">{seg[1]}</span> : <span key={i}>{seg[1]}</span>)}
+                </div>
+              </div>
+
+              <div className="panel">
+                <div className="panel-title"><span>Capabilities</span><span style={{color:'var(--muted)'}}>toggle optional · req locked</span></div>
+                {byLegGroup.private.length>0 && <><div className="cap-group-label">private data</div><div className="caps">{byLegGroup.private.map(id=><CapChip key={id} id={id}/>)}</div></>}
+                {byLegGroup.untrusted.length>0 && <><div className="cap-group-label">untrusted content</div><div className="caps">{byLegGroup.untrusted.map(id=><CapChip key={id} id={id}/>)}</div></>}
+                {byLegGroup.exfil.length>0 && <><div className="cap-group-label">outbound / exfil</div><div className="caps">{byLegGroup.exfil.map(id=><CapChip key={id} id={id}/>)}</div></>}
+                {byLegGroup.neutral.length>0 && <><div className="cap-group-label">neutral</div><div className="caps">{byLegGroup.neutral.map(id=><CapChip key={id} id={id}/>)}</div></>}
+                <div className="legend">
+                  <span><span className="legdot private"></span> private</span>
+                  <span><span className="legdot untrusted"></span> untrusted</span>
+                  <span><span className="legdot exfil"></span> exfil</span>
+                </div>
+              </div>
+
+              <div className="panel">
+                <div className="panel-title"><span>Guardrails</span><span style={{color:'var(--muted)'}}>break a leg</span></div>
+                {MITIGATIONS.map(m => {
+                  const on = mits.includes(m.id);
+                  const bad = on && !!m.invalid(level);
+                  return (
+                    <div key={m.id} className={'mit ' + (on?'on ':'') + (bad?'invalid':'')} onClick={()=>toggleMit(m.id)}>
+                      <div className="box">{on ? '✓' : ''}</div>
+                      <div>
+                        <div className="mtitle">{m.title} <span style={{color: LEGS[m.leg].color, fontSize:'10px'}}>[{LEGS[m.leg].short}]</span></div>
+                        <div className="mdesc">{m.desc}</div>
+                        {bad && <div className="mdesc" style={{color:'var(--red)'}}>⚠ {m.invalid(level)}</div>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* RIGHT: trifecta + status */}
+            <div>
+              <div className="panel">
+                <div className="panel-title"><span>Trifecta Monitor</span><span style={{color: lethal?'var(--red)':win?'var(--phosphor)':'var(--muted)'}}>{lethal?'BREACH':win?'SECURED':'live'}</span></div>
+                <div className="core-wrap">
+                  <Trifecta legState={legState} />
+                  <div className={'status-line ' + (lethal?'status-lethal pulsing':win?'status-safe':'status-idle')}>
+                    {lethal ? '✕ LETHAL TRIFECTA — EXPLOITABLE' : win ? '✓ SHIPPED & SECURED' : !reqMet ? 'product requirements not met' : 'safe — keep going'}
+                  </div>
+                </div>
+
+                <div className="legrows">
+                  {['private','untrusted','exfil'].map(l => {
+                    const st = legState[l];
+                    const why = rawLegs[l]
+                      ? (active.map(id=>CAP[id]).filter(c=>c.legs.includes(l)).map(c=>c.name).join(', '))
+                      : 'no capability provides this';
+                    const stClass = st==='live'?'live':st==='guarded'?'guarded':'clear';
+                    const stLabel = st==='live'?'LIVE':st==='guarded'?'GUARDED':'clear';
+                    return (
+                      <div className="legrow" key={l}>
+                        <div className={'legname '+l}>{LEGS[l].short}</div>
+                        <div className={'legstate '+stClass}>{stLabel}</div>
+                        <div className="legwhy">{st==='guarded' ? ('→ '+MIT[mitByLeg[l]].title) : why}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="panel">
+                {lethal && breach && (
+                  <div className="attack">
+                    <div className="atitle">⚠ BREACH PATH</div>
+                    <div>
+                      An attacker plants instructions in <span className="seg">{breach.u ? breach.u.inject : 'untrusted content'}</span>.
+                      The agent follows them, uses its access to read <span className="seg">{breach.p ? breach.p.loot : 'private data'}</span>,
+                      then <span className="seg">{breach.e ? breach.e.ship : 'sends it out'}</span>. Game over.
+                    </div>
+                    <div style={{marginTop:'8px', color:'var(--muted)'}}>Break <b>any one</b> leg: add a guardrail, or remove a capability you don’t truly need.</div>
+                  </div>
+                )}
+                {!lethal && win && (
+                  <div className="win">
+                    <div className="wtitle">✓ SECURED</div>
+                    <div>
+                      The product still does its job, but the trifecta is broken — {usefulMits.length>0
+                        ? <>guardrail in place: <b>{usefulMits.map(id=>MIT[id].title).join(', ')}</b>.</>
+                        : <>and you did it by <b>not combining</b> capabilities you didn’t need (least privilege).</>}
+                    </div>
+                    {extraCaps.length>0 && <div style={{marginTop:'6px'}} className="warn">Note: you wired in extra capabilities ({extraCaps.map(id=>CAP[id].name).join(', ')}). It works, but a tighter build uses fewer.</div>}
+                    <div style={{marginTop:'8px', color:'var(--muted)'}}>{level.teach}</div>
+                  </div>
+                )}
+                {!lethal && !win && (
+                  <div className="neutral-msg">
+                    {!reqMet
+                      ? <>The product can’t ship yet — some required capabilities are off.</>
+                      : invalidMits.length>0
+                        ? <span className="warn">⚠ A guardrail you applied breaks the product: {invalidMits.map(id=>MIT[id].invalid(level)).join(' ')}</span>
+                        : <>No lethal trifecta detected. If the brief forces a dangerous combination, find the guardrail that breaks a leg without breaking the product.</>}
+                  </div>
+                )}
+                <div className="btnrow">
+                  <button className="btn ghost" onClick={reset}>Reset board</button>
+                  <button className="btn" disabled={idx===0} onClick={()=>setIdx(i=>Math.max(0,i-1))}>← Prev</button>
+                  <button className={'btn ' + (win?'primary':'')} disabled={idx===LEVELS.length-1 || !win} onClick={()=>setIdx(i=>Math.min(LEVELS.length-1,i+1))}>
+                    {win ? 'Next level →' : 'Solve to continue'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="panel">
+                <details>
+                  <summary>Field Manual</summary>
+                  <div className="fm">
+                    <h4>The lethal trifecta</h4>
+                    An AI agent becomes dangerous when it simultaneously has all three of: access to <b style={{color:'var(--cyan)'}}>private data</b>, exposure to <b style={{color:'var(--amber)'}}>untrusted content</b>, and a way to <b style={{color:'var(--red)'}}>communicate externally</b>. Any two is usually fine. All three lets an attacker who controls the untrusted content turn your agent into their exfiltration tool.
+                    <h4>Why prompt-injection makes this unfixable-by-prompting</h4>
+                    The model can’t reliably tell <i>your</i> instructions from instructions hidden in content it reads. So you don’t patch the prompt — you remove a leg.
+                    <h4>Breaking a leg</h4>
+                    <code>HITL</code> / <code>allowlist</code> neutralize <b>exfil</b> · <code>quarantine / dual-LLM</code> neutralizes <b>untrusted</b> · <code>gating</code> / <code>data minimization</code> neutralize <b>private</b>. The cheapest fix is often least privilege: don’t combine capabilities you don’t need.
+                    <h4>Read more</h4>
+                    Simon Willison, <a href="https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/" target="_blank" rel="noopener">“The lethal trifecta”</a>.
+                  </div>
+                </details>
+              </div>
+            </div>
+          </div>
+
+          <div className="footer-note">
+            part of <a href="../../">agentic-games</a> · a security range, not a substitute for real threat modeling
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+  </script>
+</body>
+</html>
