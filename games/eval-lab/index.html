@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Eval Lab — Agentic Games</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    :root {
+      --bg: #0a0e0a;
+      --bg-2: #0f1410;
+      --panel: #11171250;
+      --phosphor: #7fff9f;
+      --phosphor-dim: #4a9d5e;
+      --phosphor-glow: #7fff9f40;
+      --amber: #ffb84a;
+      --red: #ff6b6b;
+      --grid: #1f2a1f;
+      --border: #2a3a2c;
+      --text: #c8e6c8;
+      --muted: #5a6e5a;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      overflow-x: hidden;
+      min-height: 100vh;
+    }
+
+    #root { min-height: 100vh; }
+
+    .app {
+      min-height: 100vh;
+      padding: 20px;
+      max-width: 1400px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* CRT effects */
+    .grid-bg {
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+      background-size: 40px 40px;
+      opacity: 0.25;
+      z-index: 0;
+      pointer-events: none;
+      mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
+    }
+
+    .scanlines {
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0,
+        transparent 2px,
+        rgba(127, 255, 159, 0.025) 2px,
+        rgba(127, 255, 159, 0.025) 4px
+      );
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* Boot */
+    .boot-screen {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      cursor: pointer;
+    }
+    .boot-inner {
+      font-family: 'Space Mono', monospace;
+      color: var(--phosphor);
+      text-shadow: 0 0 8px var(--phosphor-glow);
+      font-size: 15px;
+      line-height: 1.7;
+      max-width: 560px;
+    }
+    .boot-line { white-space: pre-wrap; }
+    .boot-cursor {
+      display: inline-block;
+      animation: blink 0.9s infinite;
+      color: var(--phosphor);
+    }
+    @keyframes blink {
+      0%, 49% { opacity: 1; }
+      50%, 100% { opacity: 0; }
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      background: var(--panel);
+      backdrop-filter: blur(6px);
+      margin-bottom: 12px;
+    }
+    .brand { display: flex; align-items: center; gap: 14px; }
+    .brand-dot {
+      width: 10px;
+      height: 10px;
+      background: var(--phosphor);
+      border-radius: 50%;
+      box-shadow: 0 0 10px var(--phosphor);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(0.9); }
+    }
+    .brand-title {
+      font-weight: 800;
+      letter-spacing: 0.15em;
+      color: var(--phosphor);
+      text-shadow: 0 0 6px var(--phosphor-glow);
+      font-size: 18px;
+    }
+    .brand-sub {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+    }
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--phosphor-dim);
+      letter-spacing: 0.15em;
+    }
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--phosphor);
+      border-radius: 50%;
+      box-shadow: 0 0 6px var(--phosphor);
+    }
+
+    /* HUD */
+    .hud {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr auto;
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      margin-bottom: 12px;
+    }
+    .hud-cell {
+      background: var(--bg-2);
+      padding: 14px 18px;
+    }
+    .hud-label {
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .hud-value {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--phosphor);
+      text-shadow: 0 0 4px var(--phosphor-glow);
+      letter-spacing: 0.05em;
+    }
+    .hud-unit { font-size: 12px; color: var(--phosphor-dim); }
+    .hud-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    .pulse-down { animation: pulseDown 0.6s ease-out; }
+    .pulse-up { animation: pulseUp 0.6s ease-out; }
+    @keyframes pulseDown {
+      0% { color: var(--red); transform: scale(1.15); text-shadow: 0 0 12px var(--red); }
+      100% { color: var(--phosphor); transform: scale(1); text-shadow: 0 0 4px var(--phosphor-glow); }
+    }
+    @keyframes pulseUp {
+      0% { color: var(--amber); transform: scale(1.15); text-shadow: 0 0 12px var(--amber); }
+      100% { color: var(--phosphor); transform: scale(1); text-shadow: 0 0 4px var(--phosphor-glow); }
+    }
+
+    .hud-btn {
+      background: var(--bg-2);
+      border: none;
+      color: var(--phosphor);
+      font-family: inherit;
+      padding: 0 24px;
+      letter-spacing: 0.15em;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .hud-btn:hover { background: var(--phosphor); color: var(--bg); }
+
+    /* Stage rail */
+    .rail {
+      display: flex;
+      align-items: center;
+      padding: 18px 24px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      margin-bottom: 12px;
+      overflow-x: auto;
+    }
+    .rail-node { display: flex; align-items: center; flex-shrink: 0; }
+    .rail-dot {
+      width: 14px;
+      height: 14px;
+      border: 2px solid var(--border);
+      border-radius: 50%;
+      background: var(--bg);
+      flex-shrink: 0;
+    }
+    .rail-node.unlocked .rail-dot { border-color: var(--phosphor-dim); background: var(--phosphor-dim); }
+    .rail-node.active .rail-dot {
+      border-color: var(--phosphor);
+      background: var(--phosphor);
+      box-shadow: 0 0 12px var(--phosphor);
+      animation: pulse 2s infinite;
+    }
+    .rail-label { margin-left: 10px; }
+    .rail-codename { font-size: 10px; letter-spacing: 0.15em; color: var(--muted); }
+    .rail-node.unlocked .rail-codename { color: var(--phosphor-dim); }
+    .rail-node.active .rail-codename { color: var(--phosphor); }
+    .rail-name { font-size: 11px; letter-spacing: 0.1em; color: var(--muted); margin-top: 2px; }
+    .rail-node.active .rail-name { color: var(--text); }
+    .rail-line { flex: 1; min-width: 30px; height: 1px; background: var(--border); margin: 0 16px; }
+    .rail-line.lit { background: linear-gradient(to right, var(--phosphor-dim), var(--border)); }
+
+    /* Main grid */
+    .main {
+      display: grid;
+      grid-template-columns: 1fr 1.2fr;
+      gap: 12px;
+    }
+    @media (max-width: 900px) {
+      .main { grid-template-columns: 1fr; }
+      .panel-scenario { order: 1; }
+      .panel-techs { order: 2; }
+    }
+
+    .panel {
+      border: 1px solid var(--border);
+      background: var(--panel);
+      backdrop-filter: blur(6px);
+      padding: 18px;
+    }
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding-bottom: 12px;
+      border-bottom: 1px dashed var(--border);
+      margin-bottom: 16px;
+    }
+    .panel-title {
+      color: var(--phosphor);
+      letter-spacing: 0.15em;
+      font-weight: 700;
+      font-size: 13px;
+      text-shadow: 0 0 4px var(--phosphor-glow);
+    }
+    .panel-sub { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+
+    /* Tech cards */
+    .tech-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 10px;
+    }
+    .tech-card {
+      border: 1px solid var(--border);
+      padding: 12px;
+      background: rgba(15, 20, 16, 0.6);
+      transition: all 0.2s;
+      position: relative;
+    }
+    .tech-card:hover { border-color: var(--phosphor-dim); transform: translateY(-1px); }
+    .tech-card.owned { border-color: var(--phosphor-dim); background: rgba(127, 255, 159, 0.04); }
+    .tech-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; gap: 8px; }
+    .tech-name { font-weight: 700; font-size: 13px; color: var(--text); line-height: 1.3; }
+    .tech-card.owned .tech-name { color: var(--phosphor); }
+    .tech-tier {
+      font-size: 9px;
+      padding: 2px 6px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      flex-shrink: 0;
+    }
+    .tech-desc { font-size: 11px; line-height: 1.55; color: var(--muted); margin-bottom: 12px; min-height: 50px; }
+    .tech-foot { display: flex; gap: 6px; align-items: center; }
+    .tech-buy {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--phosphor-dim);
+      color: var(--phosphor);
+      font-family: inherit;
+      padding: 6px 10px;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .tech-buy:hover:not(:disabled) { background: var(--phosphor); color: var(--bg); }
+    .tech-buy:disabled { opacity: 0.3; cursor: not-allowed; }
+    .tech-deployed {
+      flex: 1;
+      color: var(--phosphor);
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      text-align: center;
+      padding: 6px;
+      border: 1px solid var(--phosphor-dim);
+      background: rgba(127, 255, 159, 0.05);
+    }
+    .tech-info {
+      width: 26px;
+      height: 26px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--phosphor-dim);
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.15s;
+    }
+    .tech-info:hover { border-color: var(--phosphor); color: var(--phosphor); }
+
+    /* Scenario */
+    .scenario-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .scenario-tag { color: var(--amber); font-size: 11px; letter-spacing: 0.15em; font-weight: 700; }
+    .scenario-stage { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+    .scenario-body {
+      padding: 14px;
+      border-left: 2px solid var(--amber);
+      background: rgba(255, 184, 74, 0.04);
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text);
+      margin-bottom: 16px;
+      font-style: italic;
+    }
+    .scenario-q { font-size: 11px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 10px; }
+    .scenario-options { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+    .scenario-opt {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: inherit;
+      padding: 8px 12px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .scenario-opt:hover:not(:disabled) { border-color: var(--phosphor-dim); }
+    .scenario-opt.selected { border-color: var(--phosphor); color: var(--phosphor); background: rgba(127, 255, 159, 0.05); }
+    .scenario-opt.right { border-color: var(--phosphor); background: var(--phosphor); color: var(--bg); }
+    .scenario-opt.wrong { border-color: var(--red); background: rgba(255, 107, 107, 0.1); color: var(--red); }
+    .scenario-empty { color: var(--muted); font-size: 11px; font-style: italic; padding: 12px 0; }
+    .scenario-feedback { padding: 10px 12px; font-size: 11px; letter-spacing: 0.05em; margin-bottom: 14px; }
+    .scenario-feedback.right { border-left: 2px solid var(--phosphor); background: rgba(127, 255, 159, 0.06); color: var(--phosphor); }
+    .scenario-feedback.wrong { border-left: 2px solid var(--red); background: rgba(255, 107, 107, 0.06); color: var(--red); }
+    .scenario-actions { display: flex; gap: 8px; justify-content: flex-end; }
+    .scenario-hint {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border: 1px dashed var(--border);
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .scenario-tip {
+      margin-top: 10px;
+      padding: 10px 12px;
+      background: rgba(255, 184, 74, 0.06);
+      border-left: 2px solid var(--amber);
+      font-size: 11px;
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .scenario-tip strong { color: var(--amber); }
+    .scenario-empty-state { text-align: center; padding: 30px 20px; color: var(--muted); }
+    .scenario-empty-icon { font-size: 28px; color: var(--phosphor-dim); margin-bottom: 10px; }
+    .scenario-empty-sub { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+    .intro-list { list-style: none; counter-reset: step; padding: 0; }
+    .intro-list li {
+      counter-increment: step;
+      padding: 10px 0 10px 36px;
+      position: relative;
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--text);
+      border-bottom: 1px dotted var(--border);
+    }
+    .intro-list li:last-child { border-bottom: none; }
+    .intro-list li::before {
+      content: counter(step, decimal-leading-zero);
+      position: absolute;
+      left: 0;
+      top: 10px;
+      font-size: 11px;
+      color: var(--phosphor);
+      font-weight: 700;
+      letter-spacing: 0.1em;
+    }
+    .intro-list strong { color: var(--phosphor); }
+    .intro-start { width: 100%; padding: 14px; margin-top: 12px; font-size: 12px; }
+
+    .btn-primary, .btn-secondary, .btn-advance {
+      font-family: inherit;
+      cursor: pointer;
+      letter-spacing: 0.1em;
+      transition: all 0.15s;
+    }
+    .btn-primary {
+      background: var(--phosphor);
+      color: var(--bg);
+      border: none;
+      padding: 8px 18px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .btn-primary:hover:not(:disabled) { box-shadow: 0 0 12px var(--phosphor-glow); }
+    .btn-primary:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 8px 14px;
+      font-size: 11px;
+    }
+    .btn-secondary:hover { border-color: var(--phosphor-dim); color: var(--phosphor-dim); }
+
+    /* Advance */
+    .advance-section {
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px dashed var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+    }
+    .advance-label { font-size: 10px; color: var(--muted); letter-spacing: 0.15em; }
+    .advance-name { color: var(--text); font-size: 13px; margin-top: 4px; letter-spacing: 0.05em; }
+    .advance-cost { font-size: 11px; color: var(--phosphor-dim); margin-top: 2px; }
+    .btn-advance {
+      background: transparent;
+      border: 1px solid var(--phosphor);
+      color: var(--phosphor);
+      padding: 12px 20px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+    }
+    .btn-advance:hover:not(:disabled) { background: var(--phosphor); color: var(--bg); box-shadow: 0 0 14px var(--phosphor-glow); }
+    .btn-advance:disabled { border-color: var(--border); color: var(--muted); cursor: not-allowed; }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 20px;
+    }
+    .modal {
+      background: var(--bg-2);
+      border: 1px solid var(--phosphor-dim);
+      max-width: 520px;
+      width: 100%;
+      max-height: 85vh;
+      overflow-y: auto;
+      padding: 24px;
+      box-shadow: 0 0 40px rgba(127, 255, 159, 0.15);
+    }
+    .modal-wide { max-width: 720px; }
+    .modal-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 20px;
+      padding-bottom: 14px;
+      border-bottom: 1px dashed var(--border);
+    }
+    .modal-tag { font-size: 10px; color: var(--phosphor-dim); letter-spacing: 0.2em; margin-bottom: 4px; }
+    .modal-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--phosphor);
+      text-shadow: 0 0 4px var(--phosphor-glow);
+      letter-spacing: 0.05em;
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 24px;
+      cursor: pointer;
+      font-family: inherit;
+      line-height: 1;
+    }
+    .modal-close:hover { color: var(--phosphor); }
+    .modal-section { margin-bottom: 16px; }
+    .modal-label { font-size: 10px; color: var(--muted); letter-spacing: 0.2em; margin-bottom: 6px; }
+    .modal-label-inline { font-size: 10px; color: var(--muted); letter-spacing: 0.15em; margin-right: 8px; }
+    .modal-text { font-size: 12px; line-height: 1.65; color: var(--text); }
+    .modal-text.muted { color: var(--muted); }
+    .modal-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .tag {
+      font-size: 10px;
+      padding: 3px 8px;
+      background: rgba(127, 255, 159, 0.06);
+      border: 1px solid var(--phosphor-dim);
+      color: var(--phosphor);
+      letter-spacing: 0.05em;
+    }
+    .manual-stage { padding: 14px 0; border-bottom: 1px dashed var(--border); }
+    .manual-stage:last-child { border-bottom: none; }
+    .manual-stage-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
+    .manual-codename { color: var(--phosphor); font-weight: 700; font-size: 12px; letter-spacing: 0.15em; }
+    .manual-name { color: var(--text); font-size: 13px; letter-spacing: 0.05em; }
+    .manual-complexity { font-size: 10px; color: var(--phosphor-dim); letter-spacing: 0.1em; margin-bottom: 6px; }
+    .manual-modes { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+    .manual-list { list-style: none; padding: 0; }
+    .manual-list li {
+      font-size: 12px;
+      line-height: 1.7;
+      color: var(--text);
+      padding: 8px 0;
+      border-bottom: 1px dotted var(--border);
+    }
+    .manual-list li:last-child { border-bottom: none; }
+    .manual-list strong { color: var(--phosphor); }
+
+    /* Flash */
+    .flash {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg-2);
+      border: 1px solid var(--phosphor);
+      color: var(--phosphor);
+      padding: 12px 24px;
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      text-shadow: 0 0 4px var(--phosphor-glow);
+      box-shadow: 0 0 20px var(--phosphor-glow);
+      z-index: 50;
+      animation: flashIn 0.3s ease-out;
+    }
+    @keyframes flashIn {
+      from { opacity: 0; transform: translate(-50%, 10px); }
+      to { opacity: 1; transform: translate(-50%, 0); }
+    }
+
+    /* Victory */
+    .victory {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      padding: 40px 20px;
+      text-align: center;
+    }
+    .victory-tag { color: var(--amber); font-size: 12px; letter-spacing: 0.3em; margin-bottom: 14px; }
+    .victory-title {
+      font-size: 26px;
+      color: var(--phosphor);
+      text-shadow: 0 0 10px var(--phosphor-glow);
+      letter-spacing: 0.15em;
+      font-weight: 800;
+      margin-bottom: 30px;
+    }
+    .victory-stats { display: flex; gap: 40px; margin-bottom: 30px; flex-wrap: wrap; justify-content: center; }
+    .victory-stats > div { font-size: 12px; color: var(--muted); letter-spacing: 0.1em; }
+    .victory-stats span {
+      display: block;
+      font-size: 32px;
+      color: var(--phosphor);
+      font-weight: 700;
+      margin-bottom: 4px;
+      text-shadow: 0 0 6px var(--phosphor-glow);
+    }
+    .victory-text { max-width: 520px; font-size: 13px; line-height: 1.7; color: var(--text); margin-bottom: 30px; }
+
+    @media (max-width: 600px) {
+      .app { padding: 10px; }
+      .hud { grid-template-columns: 1fr 1fr; }
+      .hud-btn { grid-column: 1 / -1; padding: 12px; }
+      .hud-cell { padding: 10px 12px; }
+      .hud-value { font-size: 18px; }
+      .rail { padding: 12px; }
+      .rail-label { display: none; }
+      .rail-line { min-width: 12px; margin: 0 6px; }
+      .tech-grid { grid-template-columns: 1fr; }
+      .tech-desc { min-height: auto; }
+      .scenario-opt { padding: 10px 14px; font-size: 12px; }
+      .btn-primary, .btn-secondary, .btn-advance { padding: 10px 16px; font-size: 11px; }
+      .advance-section { flex-direction: column; align-items: stretch; }
+      .btn-advance { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" data-presets="react">
+    const { useState, useEffect } = React;
+
+    // ============================================================
+    // DATA
+    // ============================================================
+
+    const STAGES = [
+      { id: 0, name: 'CHATBOT', codename: 'STAGE_00', desc: 'A single-turn Q&A bot. Stateless. One input, one output.', complexity: 'L1 — String in, string out', failureModes: ['hallucination', 'refusal', 'format drift', 'tone mismatch'], unlockCost: 0 },
+      { id: 1, name: 'RAG SYSTEM', codename: 'STAGE_01', desc: 'Retrieval-augmented. Pulls context from a knowledge base before answering.', complexity: 'L2 — Retrieve, then generate', failureModes: ['retrieval miss', 'context ignored', 'citation fabrication', 'stale info'], unlockCost: 40 },
+      { id: 2, name: 'TOOL-USE AGENT', codename: 'STAGE_02', desc: 'Calls functions: search, calculator, API. Decides when and how.', complexity: 'L3 — Reason → act → observe', failureModes: ['wrong tool', 'bad arguments', 'infinite loop', 'tool error mishandled'], unlockCost: 100 },
+      { id: 3, name: 'MULTI-STEP AGENT', codename: 'STAGE_03', desc: 'Plans, executes, replans. Long trajectories across many tools and turns.', complexity: 'L4 — Goal decomposition + memory', failureModes: ['plan derailment', 'forgotten subgoal', 'circular reasoning', 'reward hacking'], unlockCost: 200 },
+      { id: 4, name: 'AGENT SWARM', codename: 'STAGE_04', desc: 'Multiple specialized agents collaborate. Orchestrator + workers.', complexity: 'L5 — Emergent multi-agent dynamics', failureModes: ['coordination collapse', 'role confusion', 'echo chambers', 'cascade failures'], unlockCost: 350 },
+    ];
+
+    const TECHNIQUES = [
+      { id: 'exact', name: 'Exact Match', tier: 1, stage: 0, cost: 8, desc: 'String equality. Brutally simple. Brutally brittle.', catches: ['format drift'], whenToUse: 'When output is structured and deterministic (codes, IDs, classifications).', pitfall: 'Punishes equivalent answers worded differently.' },
+      { id: 'regex', name: 'Regex / Heuristic', tier: 1, stage: 0, cost: 5, desc: 'Pattern matching. Cheap, fast, fragile.', catches: ['format drift', 'refusal'], whenToUse: 'Format checks: does the output contain a phone number, a JSON key, a disclaimer?', pitfall: 'False sense of security — patterns match, semantics may not.' },
+      { id: 'bleu', name: 'BLEU / ROUGE', tier: 1, stage: 0, cost: 10, desc: 'N-gram overlap with reference. Translation-era classics.', catches: ['tone mismatch'], whenToUse: 'When you have golden references and care about surface similarity.', pitfall: 'Correlates poorly with human judgment for open-ended generation.' },
+      { id: 'human', name: 'Human Review', tier: 1, stage: 0, cost: 15, desc: 'Real humans rate outputs. The ground truth — and the bottleneck.', catches: ['hallucination', 'tone mismatch', 'refusal'], whenToUse: 'Always have some. Calibrates everything else.', pitfall: 'Expensive, slow, inconsistent across raters.' },
+      { id: 'retrieval_p', name: 'Retrieval Precision@k', tier: 2, stage: 1, cost: 20, desc: 'Of the top-k retrieved chunks, how many are relevant?', catches: ['retrieval miss'], whenToUse: 'Diagnosing RAG: is the retriever bringing back the right stuff?', pitfall: 'Needs labeled relevance judgments per query.' },
+      { id: 'retrieval_r', name: 'Retrieval Recall', tier: 2, stage: 1, cost: 20, desc: 'Of all relevant chunks in the corpus, how many did we find?', catches: ['retrieval miss'], whenToUse: 'When missing context is more costly than extra context.', pitfall: 'Requires exhaustive ground-truth labeling.' },
+      { id: 'faithful', name: 'Faithfulness', tier: 2, stage: 1, cost: 25, desc: 'Is every claim in the answer supported by the retrieved context?', catches: ['citation fabrication', 'hallucination'], whenToUse: 'Critical for any RAG system that cites sources.', pitfall: 'Often implemented as LLM-judge — inherits judge biases.' },
+      { id: 'answer_rel', name: 'Answer Relevance', tier: 2, stage: 1, cost: 20, desc: 'Does the answer actually address the question asked?', catches: ['context ignored'], whenToUse: 'Catches the "technically correct but unhelpful" failure mode.', pitfall: 'Subjective — define "relevant" precisely or judges disagree.' },
+      { id: 'tool_sel', name: 'Tool Selection Acc.', tier: 3, stage: 2, cost: 30, desc: 'Did the agent pick the right tool for the job?', catches: ['wrong tool'], whenToUse: 'When your agent has multiple overlapping tools.', pitfall: 'Sometimes multiple tools are valid — needs careful labeling.' },
+      { id: 'arg_acc', name: 'Argument Accuracy', tier: 3, stage: 2, cost: 30, desc: 'Are the arguments to the tool call correct and well-formed?', catches: ['bad arguments'], whenToUse: 'Schema validation + semantic correctness of params.', pitfall: 'Easy to check syntax, hard to check intent.' },
+      { id: 'task_succ', name: 'Task Success Rate', tier: 3, stage: 2, cost: 40, desc: 'End-to-end: did the agent accomplish what the user asked?', catches: ['tool error mishandled', 'wrong tool'], whenToUse: 'The north star metric for any agentic system.', pitfall: 'Binary success hides the "how" — pair with trajectory metrics.' },
+      { id: 'efficiency', name: 'Step Efficiency', tier: 3, stage: 2, cost: 35, desc: 'Steps taken vs. minimum required. Detects rambling.', catches: ['infinite loop'], whenToUse: 'When cost and latency matter — i.e., always in production.', pitfall: 'Optimal step count is often subjective.' },
+      { id: 'traj', name: 'Trajectory Match', tier: 4, stage: 3, cost: 50, desc: 'Compares the full action sequence against an ideal trajectory.', catches: ['plan derailment'], whenToUse: 'When the *path* matters, not just the destination.', pitfall: 'Many valid paths exist — exact match is too strict.' },
+      { id: 'subgoal', name: 'Subgoal Completion', tier: 4, stage: 3, cost: 50, desc: 'Decompose the task; check each subgoal independently.', catches: ['forgotten subgoal'], whenToUse: 'For long-horizon tasks with clear milestones.', pitfall: 'Requires task-specific decomposition logic.' },
+      { id: 'judge', name: 'LLM-as-Judge', tier: 4, stage: 3, cost: 60, desc: 'Use a strong model to grade outputs against a rubric.', catches: ['plan derailment', 'circular reasoning', 'forgotten subgoal'], whenToUse: 'Scales human judgment for nuanced criteria.', pitfall: 'Position bias, verbosity bias, self-preference. Validate against humans.' },
+      { id: 'reward_hack', name: 'Reward Hack Detector', tier: 4, stage: 3, cost: 70, desc: 'Adversarial probes: is the agent gaming the metric instead of solving the task?', catches: ['reward hacking'], whenToUse: 'After every metric change. Goodhart is always watching.', pitfall: "You're evaluating your evaluation — turtles all the way down." },
+      { id: 'coord', name: 'Coordination Score', tier: 5, stage: 4, cost: 80, desc: 'Measures information flow and handoff quality between agents.', catches: ['coordination collapse'], whenToUse: 'Multi-agent systems with explicit handoffs.', pitfall: 'No standard formulation yet — research frontier.' },
+      { id: 'role_adh', name: 'Role Adherence', tier: 5, stage: 4, cost: 70, desc: 'Does each agent stay within its designated scope?', catches: ['role confusion'], whenToUse: 'When specialization is the whole point of using multiple agents.', pitfall: 'Strict roles can prevent useful improvisation.' },
+      { id: 'diversity', name: 'Output Diversity', tier: 5, stage: 4, cost: 60, desc: 'Are agents producing distinct perspectives, or echoing each other?', catches: ['echo chambers'], whenToUse: 'Debate, brainstorming, or ensemble setups.', pitfall: "Diversity alone isn't quality — pair with correctness." },
+      { id: 'cascade', name: 'Cascade Analysis', tier: 5, stage: 4, cost: 90, desc: "Traces how one agent's error propagates through the system.", catches: ['cascade failures'], whenToUse: 'Production debugging of multi-agent failures.', pitfall: 'Requires full observability across all agents.' },
+      { id: 'safety', name: 'Safety Probes', tier: 0, stage: 0, cost: 25, desc: 'Red-team prompts for harmful outputs, jailbreaks, PII leakage.', catches: ['hallucination', 'refusal'], whenToUse: 'Every system. Every release.', pitfall: 'Static probes get stale — attackers iterate.' },
+      { id: 'cost_lat', name: 'Cost & Latency', tier: 0, stage: 0, cost: 15, desc: 'Tokens, dollars, milliseconds. The unglamorous metrics that decide if you ship.', catches: [], whenToUse: 'From day one. Cheap to measure, expensive to ignore.', pitfall: 'Optimizing only for cost erodes quality silently.' },
+      { id: 'regression', name: 'Regression Suite', tier: 0, stage: 0, cost: 20, desc: 'A frozen set of cases that must keep passing across versions.', catches: [], whenToUse: 'The moment you have a second version of anything.', pitfall: 'Overfitting to the suite. Refresh it.' },
+    ];
+
+    const SCENARIOS = [
+      { stage: 0, prompt: 'Your chatbot answers "The capital of Australia is Sydney." Confidently. Always.', symptom: 'hallucination', hint: 'You need something that catches confidently wrong facts.' },
+      { stage: 0, prompt: 'Users report the bot replies in JSON when they asked for plain English.', symptom: 'format drift', hint: 'Cheap pattern checks can catch this.' },
+      { stage: 1, prompt: 'The RAG bot cites a doc that says the opposite of what it claims.', symptom: 'citation fabrication', hint: 'You need to verify claims against retrieved context.' },
+      { stage: 1, prompt: 'Asked about Q4 earnings, the retriever returns Q4 of three years ago.', symptom: 'retrieval miss', hint: 'Measure what the retriever actually surfaces.' },
+      { stage: 2, prompt: 'User asks for the weather. Agent calls the calculator. Returns 47.', symptom: 'wrong tool', hint: 'Track whether the agent picks the right capability.' },
+      { stage: 2, prompt: 'Agent calls search_flights with date "next Tuesday" instead of "2026-05-19".', symptom: 'bad arguments', hint: 'Check the shape and content of arguments.' },
+      { stage: 3, prompt: 'Agent was asked to book travel AND a hotel. It books travel, then declares done.', symptom: 'forgotten subgoal', hint: 'Decompose the task and check each piece.' },
+      { stage: 3, prompt: 'Your eval rewards short answers. Agent now answers everything in 3 words.', symptom: 'reward hacking', hint: "Goodhart's law. Probe adversarially." },
+      { stage: 4, prompt: 'Researcher agent finds source A. Writer agent cites source B. Editor agent ships it.', symptom: 'coordination collapse', hint: 'Measure information fidelity across handoffs.' },
+      { stage: 4, prompt: "Three agents debate. All three converge on the first agent's framing within one turn.", symptom: 'echo chambers', hint: "Measure how distinct the agents' contributions are." },
+    ];
+
+    // ============================================================
+    // COMPONENTS
+    // ============================================================
+
+    const Boot = ({ onDone }) => {
+      const [lines, setLines] = useState([]);
+      const messages = [
+        '> INITIALIZING EVAL LAB v4.7.2',
+        '> Loading metric registry...........[OK]',
+        '> Mounting failure taxonomy.........[OK]',
+        '> Calibrating LLM judges............[OK]',
+        '> Establishing connection to AGENT_00',
+        '> ',
+        '> WELCOME, RESEARCH ENGINEER.',
+        '> Your assignment: build the evaluation',
+        '  infrastructure for increasingly complex',
+        '  agent systems.',
+        '> ',
+        '> [PRESS ENTER TO BEGIN]',
+      ];
+      useEffect(() => {
+        let i = 0;
+        const tick = () => {
+          if (i < messages.length) {
+            setLines(l => [...l, messages[i]]);
+            i++;
+            setTimeout(tick, 180);
+          }
+        };
+        tick();
+      }, []);
+      return (
+        <div className="boot-screen" onClick={onDone}>
+          <div className="boot-inner">
+            {lines.map((l, i) => <div key={i} className="boot-line">{l}</div>)}
+            <div className="boot-cursor">▮</div>
+          </div>
+        </div>
+      );
+    };
+
+    const Hud = ({ insight, stage, owned, onShowGlossary, ipPulse }) => (
+      <div className="hud">
+        <div className="hud-cell">
+          <div className="hud-label">INSIGHT</div>
+          <div className={`hud-value ${ipPulse === 'down' ? 'pulse-down' : ''} ${ipPulse === 'up' ? 'pulse-up' : ''}`}>
+            {insight} <span className="hud-unit">IP</span>
+          </div>
+        </div>
+        <div className="hud-cell">
+          <div className="hud-label">CURRENT SYSTEM</div>
+          <div className="hud-value">{STAGES[stage].codename}</div>
+          <div className="hud-sub">{STAGES[stage].name}</div>
+        </div>
+        <div className="hud-cell">
+          <div className="hud-label">METRICS DEPLOYED</div>
+          <div className="hud-value">{owned.length}/{TECHNIQUES.length}</div>
+        </div>
+        <button className="hud-btn" onClick={onShowGlossary}>FIELD MANUAL</button>
+      </div>
+    );
+
+    const StageRail = ({ stage, unlocked }) => (
+      <div className="rail">
+        {STAGES.map((s, i) => (
+          <div key={s.id} className={`rail-node ${i === stage ? 'active' : ''} ${unlocked.includes(i) ? 'unlocked' : ''}`}>
+            <div className="rail-dot" />
+            <div className="rail-label">
+              <div className="rail-codename">{s.codename}</div>
+              <div className="rail-name">{s.name}</div>
+            </div>
+            {i < STAGES.length - 1 && <div className={`rail-line ${unlocked.includes(i + 1) ? 'lit' : ''}`} />}
+          </div>
+        ))}
+      </div>
+    );
+
+    const TechCard = ({ tech, owned, canAfford, onBuy, onInfo }) => (
+      <div className={`tech-card ${owned ? 'owned' : ''}`}>
+        <div className="tech-head">
+          <div className="tech-name">{tech.name}</div>
+          <div className="tech-tier">T{tech.tier}</div>
+        </div>
+        <div className="tech-desc">{tech.desc}</div>
+        <div className="tech-foot">
+          {owned ? (
+            <div className="tech-deployed">◆ DEPLOYED</div>
+          ) : (
+            <button className="tech-buy" disabled={!canAfford} onClick={() => onBuy(tech.id)}>
+              ACQUIRE · {tech.cost} IP
+            </button>
+          )}
+          <button className="tech-info" onClick={() => onInfo(tech)}>?</button>
+        </div>
+      </div>
+    );
+
+    const ScenarioPanel = ({ scenario, owned, onSolve, onSkip }) => {
+      const [selected, setSelected] = useState(null);
+      const [feedback, setFeedback] = useState(null);
+      const [showHint, setShowHint] = useState(false);
+      const [attempts, setAttempts] = useState(0);
+
+      useEffect(() => {
+        setSelected(null);
+        setFeedback(null);
+        setShowHint(false);
+        setAttempts(0);
+      }, [scenario]);
+
+      if (!scenario) return (
+        <div className="scenario-empty-state">
+          <div className="scenario-empty-icon">◇</div>
+          <div>No incidents queued.</div>
+          <div className="scenario-empty-sub">Advance to the next stage for new failure modes.</div>
+        </div>
+      );
+
+      const ownedTechs = TECHNIQUES.filter(t => owned.includes(t.id));
+
+      const submit = () => {
+        if (!selected) return;
+        const tech = TECHNIQUES.find(t => t.id === selected);
+        const correct = tech.catches.includes(scenario.symptom);
+        setFeedback({ correct, tech });
+        setAttempts(a => a + 1);
+        if (correct) {
+          setTimeout(() => onSolve(scenario, tech), 1400);
+        }
+      };
+
+      const tryAgain = () => {
+        setFeedback(null);
+        setSelected(null);
+      };
+
+      return (
+        <div className="scenario">
+          <div className="scenario-head">
+            <div className="scenario-tag">▶ INCIDENT REPORT</div>
+            <div className="scenario-stage">{STAGES[scenario.stage].codename}</div>
+          </div>
+          <div className="scenario-body">"{scenario.prompt}"</div>
+
+          <div className="scenario-q">
+            {ownedTechs.length === 0
+              ? 'Acquire a metric below to diagnose this incident →'
+              : 'Pick ONE of your deployed metrics that catches this failure:'}
+          </div>
+
+          <div className="scenario-options">
+            {ownedTechs.length === 0 ? (
+              <div className="scenario-empty">↓ Scroll to METRIC REGISTRY and acquire one.</div>
+            ) : (
+              ownedTechs.map(t => (
+                <button
+                  key={t.id}
+                  className={`scenario-opt ${selected === t.id ? 'selected' : ''} ${feedback && feedback.tech.id === t.id ? (feedback.correct ? 'right' : 'wrong') : ''}`}
+                  onClick={() => !feedback && setSelected(t.id)}
+                  disabled={!!feedback && feedback.correct}
+                >
+                  {t.name}
+                </button>
+              ))
+            )}
+          </div>
+
+          {feedback && (
+            <div className={`scenario-feedback ${feedback.correct ? 'right' : 'wrong'}`}>
+              {feedback.correct
+                ? `✓ CORRECT — ${feedback.tech.name} catches this. +15 IP`
+                : `✗ MISS — ${feedback.tech.name} won't reliably catch "${scenario.symptom}". Try another metric, or acquire one better suited.`}
+            </div>
+          )}
+
+          <div className="scenario-actions">
+            <button className="btn-secondary" onClick={() => setShowHint(s => !s)}>
+              {showHint ? 'HIDE HINT' : 'HINT'}
+            </button>
+            <button className="btn-secondary" onClick={onSkip}>SKIP</button>
+            {feedback && !feedback.correct ? (
+              <button className="btn-primary" onClick={tryAgain}>TRY AGAIN</button>
+            ) : (
+              <button className="btn-primary" onClick={submit} disabled={!selected || !!feedback}>
+                RUN EVAL
+              </button>
+            )}
+          </div>
+          {showHint && <div className="scenario-hint">{scenario.hint}</div>}
+          {attempts >= 2 && !(feedback && feedback.correct) && (
+            <div className="scenario-tip">
+              💡 Tap the <strong>?</strong> on any metric below to see what failure modes it catches.
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    const InfoModal = ({ tech, onClose }) => {
+      if (!tech) return null;
+      return (
+        <div className="modal-backdrop" onClick={onClose}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-head">
+              <div>
+                <div className="modal-tag">TIER {tech.tier} METRIC</div>
+                <div className="modal-title">{tech.name}</div>
+              </div>
+              <button className="modal-close" onClick={onClose}>×</button>
+            </div>
+            <div className="modal-section">
+              <div className="modal-label">WHAT IT MEASURES</div>
+              <div className="modal-text">{tech.desc}</div>
+            </div>
+            <div className="modal-section">
+              <div className="modal-label">WHEN TO USE</div>
+              <div className="modal-text">{tech.whenToUse}</div>
+            </div>
+            <div className="modal-section">
+              <div className="modal-label">CATCHES</div>
+              <div className="modal-tags">
+                {tech.catches.length > 0
+                  ? tech.catches.map(c => <span key={c} className="tag">{c}</span>)
+                  : <span className="modal-text muted">No specific failure mode — operational metric.</span>}
+              </div>
+            </div>
+            <div className="modal-section">
+              <div className="modal-label">⚠ PITFALL</div>
+              <div className="modal-text">{tech.pitfall}</div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const Glossary = ({ onClose }) => (
+      <div className="modal-backdrop" onClick={onClose}>
+        <div className="modal modal-wide" onClick={e => e.stopPropagation()}>
+          <div className="modal-head">
+            <div>
+              <div className="modal-tag">REFERENCE</div>
+              <div className="modal-title">FIELD MANUAL</div>
+            </div>
+            <button className="modal-close" onClick={onClose}>×</button>
+          </div>
+          <div className="modal-section">
+            <div className="modal-label">THE MATURITY LADDER</div>
+            <div className="modal-text">Agent systems grow in complexity. Each stage introduces new failure modes that simpler metrics can't catch. The right metric depends on what your system actually does.</div>
+          </div>
+          {STAGES.map(s => (
+            <div key={s.id} className="manual-stage">
+              <div className="manual-stage-head">
+                <span className="manual-codename">{s.codename}</span>
+                <span className="manual-name">{s.name}</span>
+              </div>
+              <div className="manual-complexity">{s.complexity}</div>
+              <div className="modal-text">{s.desc}</div>
+              <div className="manual-modes">
+                <span className="modal-label-inline">Failure modes:</span>
+                {s.failureModes.map(f => <span key={f} className="tag">{f}</span>)}
+              </div>
+            </div>
+          ))}
+          <div className="modal-section">
+            <div className="modal-label">KEY PRINCIPLES</div>
+            <ul className="manual-list">
+              <li><strong>Goodhart's Law:</strong> when a measure becomes a target, it ceases to be a good measure. Optimize for a metric long enough and your system will find ways to game it.</li>
+              <li><strong>The eval pyramid:</strong> many cheap automated checks at the base, fewer LLM-judge evals in the middle, sparse but high-quality human review at the top.</li>
+              <li><strong>Trajectory ≠ outcome:</strong> two agents can reach the same answer via wildly different paths. Both matter.</li>
+              <li><strong>Validate your judge:</strong> LLM-as-judge inherits the biases of its base model. Calibrate against human labels regularly.</li>
+              <li><strong>Production is the real eval:</strong> offline benchmarks predict, they don't certify. Instrument production and close the loop.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    );
+
+    const IntroModal = ({ onClose }) => (
+      <div className="modal-backdrop" onClick={onClose}>
+        <div className="modal" onClick={e => e.stopPropagation()}>
+          <div className="modal-head">
+            <div>
+              <div className="modal-tag">▶ BRIEFING</div>
+              <div className="modal-title">HOW TO PLAY</div>
+            </div>
+            <button className="modal-close" onClick={onClose}>×</button>
+          </div>
+          <div className="modal-section">
+            <div className="modal-label">THE LOOP</div>
+            <ol className="intro-list">
+              <li><strong>Read the incident</strong> — a real failure mode from a deployed system.</li>
+              <li><strong>Acquire a metric</strong> from the registry below (spends IP).</li>
+              <li><strong>Pick ONE deployed metric</strong> you think catches that failure, then RUN EVAL.</li>
+              <li><strong>Wrong?</strong> Try again or skip. No penalty for retrying.</li>
+              <li><strong>Earn IP</strong> from solved incidents → unlock the next stage of agent complexity.</li>
+            </ol>
+          </div>
+          <div className="modal-section">
+            <div className="modal-label">IMPORTANT</div>
+            <div className="modal-text">
+              Buying a metric doesn't mean you have to use it on every incident — it just adds it to your toolkit. You choose <em>which</em> deployed metric fits each failure. The whole point is learning which metric catches which kind of bug.
+            </div>
+          </div>
+          <button className="btn-primary intro-start" onClick={onClose}>BEGIN</button>
+        </div>
+      </div>
+    );
+
+    const Victory = ({ insight, owned, onRestart }) => (
+      <div className="victory">
+        <div className="victory-tag">▶ MISSION COMPLETE</div>
+        <div className="victory-title">EVAL LAB FULLY OPERATIONAL</div>
+        <div className="victory-stats">
+          <div><span>{owned.length}</span> metrics deployed</div>
+          <div><span>{insight}</span> insight points accumulated</div>
+          <div><span>5</span> agent generations evaluated</div>
+        </div>
+        <div className="victory-text">
+          You've built evaluation infrastructure across the full maturity ladder — from string matching to multi-agent cascade analysis. The lab is yours.
+          <br /><br />
+          Real evaluation work is never finished. Failure modes evolve, judges drift, and Goodhart waits. But you now have the vocabulary.
+        </div>
+        <button className="btn-primary" onClick={onRestart}>RESTART LAB</button>
+      </div>
+    );
+
+    // ============================================================
+    // MAIN APP
+    // ============================================================
+
+    function EvalLab() {
+      const [booted, setBooted] = useState(false);
+      const [insight, setInsight] = useState(30);
+      const [stage, setStage] = useState(0);
+      const [unlocked, setUnlocked] = useState([0]);
+      const [owned, setOwned] = useState([]);
+      const [scenarios, setScenarios] = useState([]);
+      const [currentScenario, setCurrentScenario] = useState(null);
+      const [solvedCount, setSolvedCount] = useState(0);
+      const [infoTech, setInfoTech] = useState(null);
+      const [showGlossary, setShowGlossary] = useState(false);
+      const [showVictory, setShowVictory] = useState(false);
+      const [flash, setFlash] = useState(null);
+      const [ipPulse, setIpPulse] = useState(null);
+      const [showIntro, setShowIntro] = useState(true);
+
+      const pickNextScenario = (currentStage, solvedList, exclude = null) => {
+        const pool = SCENARIOS.filter(s => s.stage <= currentStage);
+        const fresh = pool.filter(s => !solvedList.includes(s) && s !== exclude);
+        if (fresh.length === 0) return null;
+        return fresh[Math.floor(Math.random() * fresh.length)];
+      };
+
+      useEffect(() => {
+        if (booted && !currentScenario) {
+          const next = pickNextScenario(stage, scenarios);
+          if (next) setCurrentScenario(next);
+        }
+      }, [booted, stage]);
+
+      const showFlash = (msg) => {
+        setFlash(msg);
+        setTimeout(() => setFlash(null), 2200);
+      };
+
+      const buyTech = (id) => {
+        const tech = TECHNIQUES.find(t => t.id === id);
+        if (insight < tech.cost || owned.includes(id)) return;
+        setInsight(i => i - tech.cost);
+        setOwned(o => [...o, id]);
+        setIpPulse('down');
+        setTimeout(() => setIpPulse(null), 600);
+        showFlash(`◆ ${tech.name} deployed · −${tech.cost} IP`);
+      };
+
+      const solveScenario = (scenario, tech) => {
+        setInsight(i => i + 15);
+        setIpPulse('up');
+        setTimeout(() => setIpPulse(null), 600);
+        const newSolved = [...scenarios, scenario];
+        setScenarios(newSolved);
+        setSolvedCount(c => c + 1);
+        const next = pickNextScenario(stage, newSolved);
+        setCurrentScenario(next);
+        if (!next) showFlash('▶ All incidents resolved — advance to next stage');
+      };
+
+      const skipScenario = () => {
+        const next = pickNextScenario(stage, scenarios, currentScenario);
+        if (next) {
+          setCurrentScenario(next);
+        } else {
+          const pool = SCENARIOS.filter(s => s.stage <= stage && s !== currentScenario);
+          if (pool.length > 0) setCurrentScenario(pool[Math.floor(Math.random() * pool.length)]);
+        }
+      };
+
+      const advanceStage = () => {
+        const next = STAGES[stage + 1];
+        if (!next) { setShowVictory(true); return; }
+        if (insight < next.unlockCost) return;
+        setInsight(i => i - next.unlockCost);
+        setStage(stage + 1);
+        setUnlocked(u => [...u, stage + 1]);
+        setCurrentScenario(null);
+        showFlash(`▶ ${next.codename} ONLINE — ${next.name}`);
+      };
+
+      const restart = () => {
+        setInsight(30);
+        setStage(0);
+        setUnlocked([0]);
+        setOwned([]);
+        setScenarios([]);
+        setCurrentScenario(null);
+        setSolvedCount(0);
+        setShowVictory(false);
+        setShowIntro(true);
+      };
+
+      if (!booted) return <Boot onDone={() => setBooted(true)} />;
+
+      const availableTechs = TECHNIQUES.filter(t => t.stage <= stage);
+      const nextStage = STAGES[stage + 1];
+      const canAdvance = nextStage && insight >= nextStage.unlockCost;
+      const isLastStage = stage === STAGES.length - 1;
+
+      return (
+        <div className="app">
+          <div className="grid-bg" />
+          <div className="scanlines" />
+
+          <header className="header">
+            <div className="brand">
+              <div className="brand-dot" />
+              <div>
+                <div className="brand-title">EVAL_LAB</div>
+                <div className="brand-sub">// agent evaluation tycoon · v4.7.2</div>
+              </div>
+            </div>
+            <div className="status">
+              <span className="status-dot" />
+              <span>SYSTEM NOMINAL</span>
+            </div>
+          </header>
+
+          <Hud insight={insight} stage={stage} owned={owned} onShowGlossary={() => setShowGlossary(true)} ipPulse={ipPulse} />
+          <StageRail stage={stage} unlocked={unlocked} />
+
+          <main className="main">
+            <section className="panel panel-scenario">
+              <div className="panel-head">
+                <div className="panel-title">▣ FIELD INCIDENT</div>
+                <div className="panel-sub">Diagnose using a deployed metric</div>
+              </div>
+              <ScenarioPanel
+                scenario={currentScenario}
+                owned={owned}
+                onSolve={solveScenario}
+                onSkip={skipScenario}
+              />
+
+              <div className="advance-section">
+                <div className="advance-info">
+                  {nextStage ? (
+                    <>
+                      <div className="advance-label">NEXT GENERATION</div>
+                      <div className="advance-name">{nextStage.codename} · {nextStage.name}</div>
+                      <div className="advance-cost">Cost: {nextStage.unlockCost} IP</div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="advance-label">MAXIMUM COMPLEXITY REACHED</div>
+                      <div className="advance-name">All generations online</div>
+                    </>
+                  )}
+                </div>
+                <button
+                  className="btn-advance"
+                  disabled={!canAdvance && !isLastStage}
+                  onClick={advanceStage}
+                >
+                  {isLastStage ? 'COMPLETE LAB' : `ADVANCE → ${nextStage.codename}`}
+                </button>
+              </div>
+            </section>
+
+            <section className="panel panel-techs">
+              <div className="panel-head">
+                <div className="panel-title">▣ METRIC REGISTRY</div>
+                <div className="panel-sub">Acquire to add to your toolkit · tap ? for details</div>
+              </div>
+              <div className="tech-grid">
+                {availableTechs.map(t => (
+                  <TechCard
+                    key={t.id}
+                    tech={t}
+                    owned={owned.includes(t.id)}
+                    canAfford={insight >= t.cost}
+                    onBuy={buyTech}
+                    onInfo={setInfoTech}
+                  />
+                ))}
+              </div>
+            </section>
+          </main>
+
+          {showIntro && <IntroModal onClose={() => setShowIntro(false)} />}
+          {flash && <div className="flash">{flash}</div>}
+          {infoTech && <InfoModal tech={infoTech} onClose={() => setInfoTech(null)} />}
+          {showGlossary && <Glossary onClose={() => setShowGlossary(false)} />}
+          {showVictory && <Victory insight={insight} owned={owned} onRestart={restart} />}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<EvalLab />);
+  </script>
+</body>
+</html>
