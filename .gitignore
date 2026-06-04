@@ -1,0 +1,17 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/
+
+# Local dev
+node_modules/
+__pycache__/
+*.pyc
+.env
+.env.local
+
+# Build artifacts (none expected, but defensive)
+dist/
+build/

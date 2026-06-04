@@ -1,0 +1,2666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AGENT.DEBUG // v3 · 5 levels</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=VT323&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e0a;
+    --bg-deep: #050805;
+    --panel: #111a11;
+    --panel-2: #182218;
+    --term-green: #4ade80;
+    --term-green-dim: #2d6a3f;
+    --term-amber: #fbbf24;
+    --term-red: #f87171;
+    --term-cyan: #67e8f9;
+    --term-magenta: #f0abfc;
+    --text: #d1f5d1;
+    --text-dim: #6b8a6b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Grotesk', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body {
+    background-image:
+      linear-gradient(rgba(74,222,128,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(74,222,128,0.025) 1px, transparent 1px),
+      radial-gradient(ellipse at top, rgba(74,222,128,0.06), transparent 60%);
+    background-size: 32px 32px, 32px 32px, 100% 100%;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px, rgba(0,0,0,0.06) 3px, rgba(0,0,0,0) 4px);
+    pointer-events: none;
+    z-index: 100;
+  }
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.4) 100%);
+    pointer-events: none;
+    z-index: 99;
+  }
+
+  .frame {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px 20px 48px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ───── HEADER ───── */
+  header {
+    border: 1px solid var(--term-green-dim);
+    background: var(--panel);
+    padding: 14px 18px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    position: relative;
+  }
+  header::before, header::after {
+    content: '';
+    position: absolute;
+    width: 12px; height: 12px;
+  }
+  header::before { top: -1px; left: -1px; border-top: 2px solid var(--term-green); border-left: 2px solid var(--term-green); }
+  header::after { bottom: -1px; right: -1px; border-bottom: 2px solid var(--term-green); border-right: 2px solid var(--term-green); }
+
+  .title {
+    font-family: 'VT323', monospace;
+    font-size: 30px;
+    line-height: 1;
+    color: var(--term-green);
+    text-shadow: 0 0 8px rgba(74,222,128,0.5);
+  }
+  .title .blink {
+    animation: blink 1s steps(2) infinite;
+    color: var(--term-amber);
+  }
+  @keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+  }
+  .subtitle {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+  .hud { display: flex; gap: 14px; font-family: 'JetBrains Mono', monospace; }
+  .hud-item { display: flex; flex-direction: column; align-items: flex-end; }
+  .hud-label {
+    color: var(--text-dim);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+  .hud-value {
+    font-family: 'VT323', monospace;
+    font-size: 22px;
+    color: var(--term-green);
+    text-shadow: 0 0 6px rgba(74,222,128,0.4);
+    line-height: 1;
+  }
+  .hud-value.streak { color: var(--term-amber); text-shadow: 0 0 6px rgba(251,191,36,0.4); }
+  .hud-value.score  { color: var(--term-cyan);  text-shadow: 0 0 6px rgba(103,232,249,0.4); }
+  .hud-value.level  { color: var(--term-magenta); text-shadow: 0 0 6px rgba(240,171,252,0.4); }
+
+  /* ───── LEVEL SELECT ───── */
+  .level-select {
+    border: 1px solid var(--term-green-dim);
+    background: var(--panel);
+    padding: 24px;
+    display: none;
+  }
+  .level-select.show { display: block; }
+  .level-select h2 {
+    font-family: 'VT323', monospace;
+    font-size: 32px;
+    color: var(--term-amber);
+    text-shadow: 0 0 8px rgba(251,191,36,0.4);
+    margin-bottom: 6px;
+  }
+  .level-select .lead {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--text-dim);
+    margin-bottom: 24px;
+    text-transform: uppercase;
+  }
+  .levels {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+  }
+  .level-card {
+    border: 1px solid var(--term-green-dim);
+    background: var(--bg-deep);
+    padding: 18px 16px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: left;
+    color: var(--text);
+    font-family: inherit;
+    position: relative;
+  }
+  .level-card:hover:not(:disabled) {
+    background: var(--panel-2);
+    box-shadow: inset 0 0 0 1px var(--term-green);
+    transform: translateY(-1px);
+  }
+  .level-card:disabled { cursor: not-allowed; opacity: 0.45; }
+  .level-card.locked .level-name { color: var(--text-dim); }
+  .level-card .level-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--term-green-dim);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+  }
+  .level-card .level-name {
+    font-family: 'VT323', monospace;
+    font-size: 26px;
+    color: var(--term-green);
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+  .level-card .level-desc {
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.4;
+    margin-bottom: 12px;
+    min-height: 50px;
+  }
+  .level-card .level-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border-top: 1px dashed var(--term-green-dim);
+    padding-top: 10px;
+  }
+  .level-card .level-count { color: var(--text-dim); }
+  .level-card .level-grade {
+    font-family: 'VT323', monospace;
+    font-size: 22px;
+    color: var(--term-amber);
+    text-shadow: 0 0 4px rgba(251,191,36,0.4);
+    line-height: 1;
+  }
+  .level-card .level-grade.empty { color: var(--text-dim); opacity: 0.4; text-shadow: none; }
+  .level-card .locked-tag {
+    position: absolute;
+    top: 8px; right: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--term-red);
+  }
+  .level-card.unlocked .locked-tag { display: none; }
+  .level-card.cleared {
+    border-color: var(--term-amber);
+    box-shadow: inset 0 0 0 1px rgba(251,191,36,0.3);
+  }
+  .level-card.l5 .level-name { color: var(--term-magenta); }
+  .level-card.l5 .level-num { color: var(--term-magenta); opacity: 0.6; }
+
+  .reset-row { margin-top: 22px; text-align: right; }
+  .btn-tiny {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 6px 12px;
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--text-dim);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .btn-tiny:hover { color: var(--term-red); border-color: var(--term-red); }
+
+  /* ───── GAME STAGE ───── */
+  .stage { display: none; gap: 18px; flex-direction: column; }
+  .stage.show { display: flex; }
+
+  .scenario {
+    border: 1px solid var(--term-green-dim);
+    background: var(--panel);
+    position: relative;
+    overflow: hidden;
+  }
+  .scenario-header {
+    background: var(--panel-2);
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--term-green-dim);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .scenario-id { color: var(--term-amber); font-weight: 700; }
+  .scenario-meta { color: var(--text-dim); display: flex; gap: 10px; flex-wrap: wrap; }
+  .scenario-meta .pill {
+    padding: 2px 8px;
+    border: 1px solid var(--term-green-dim);
+    border-radius: 2px;
+    color: var(--term-green);
+  }
+  .scenario-meta .pill.repro { color: var(--term-red); border-color: var(--term-red); }
+  .scenario-meta .pill.flake { color: var(--term-cyan); border-color: var(--term-cyan); }
+  .scenario-meta .pill.chain { color: var(--term-magenta); border-color: var(--term-magenta); }
+
+  .scenario-body { padding: 22px 20px 24px; }
+  .scenario-prompt {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--term-green);
+    margin-bottom: 8px;
+  }
+  .scenario-prompt::before { content: '▸ '; }
+  .scenario-text {
+    font-size: 17px;
+    line-height: 1.5;
+    color: var(--text);
+    margin-bottom: 16px;
+  }
+  .scenario-text strong { color: var(--term-amber); font-weight: 600; }
+  .scenario-text em { color: var(--term-magenta); font-style: italic; }
+  .scenario-text code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    background: var(--bg-deep);
+    color: var(--term-cyan);
+    padding: 1px 6px;
+    border-radius: 2px;
+  }
+
+  .console {
+    background: var(--bg-deep);
+    border: 1px solid var(--term-green-dim);
+    padding: 12px 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    line-height: 1.55;
+    color: var(--text-dim);
+    margin-top: 10px;
+    overflow-x: auto;
+  }
+  .console .ts { color: var(--term-green-dim); }
+  .console .lvl-ok   { color: var(--term-green); }
+  .console .lvl-warn { color: var(--term-amber); }
+  .console .lvl-err  { color: var(--term-red); }
+  .console .lvl-info { color: var(--term-cyan); }
+  .console .arrow    { color: var(--term-magenta); }
+
+  /* Chain progress indicator (Level 5) */
+  .chain-progress {
+    display: none;
+    margin-top: 14px;
+    padding: 10px 14px;
+    background: var(--bg-deep);
+    border: 1px solid var(--term-magenta);
+  }
+  .chain-progress.show { display: block; }
+  .chain-progress .chain-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--term-magenta);
+    margin-bottom: 6px;
+  }
+  .chain-steps {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .chain-step {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 4px 10px;
+    border: 1px dashed var(--text-dim);
+    color: var(--text-dim);
+    border-radius: 2px;
+  }
+  .chain-step.filled {
+    border-style: solid;
+    border-color: var(--term-green);
+    color: var(--term-green);
+    background: rgba(74,222,128,0.08);
+  }
+  .chain-step.current {
+    border-color: var(--term-amber);
+    color: var(--term-amber);
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+  }
+  .chain-arrow { color: var(--term-green-dim); font-family: monospace; }
+
+  .dials-wrap {
+    border: 1px solid var(--term-green-dim);
+    background: var(--panel);
+  }
+  .dials-header {
+    background: var(--panel-2);
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--term-green-dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--term-amber);
+  }
+  .dials-header::before { content: '⚙ '; }
+  .dials {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 0;
+  }
+  .dial {
+    border-right: 1px solid var(--term-green-dim);
+    border-bottom: 1px solid var(--term-green-dim);
+    padding: 14px 12px;
+    background: var(--panel);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: left;
+    color: var(--text);
+    font-family: inherit;
+  }
+  .dial:hover:not(:disabled) {
+    background: var(--panel-2);
+    box-shadow: inset 0 0 0 1px var(--term-green);
+  }
+  .dial:disabled { cursor: not-allowed; opacity: 0.5; }
+  .dial.correct {
+    background: rgba(74,222,128,0.15);
+    box-shadow: inset 0 0 0 2px var(--term-green);
+  }
+  .dial.wrong {
+    background: rgba(248,113,113,0.12);
+    box-shadow: inset 0 0 0 2px var(--term-red);
+  }
+  .dial.partial {
+    background: rgba(251,191,36,0.12);
+    box-shadow: inset 0 0 0 2px var(--term-amber);
+  }
+  .dial-key {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    color: var(--term-green-dim);
+    margin-bottom: 3px;
+  }
+  .dial-name {
+    font-family: 'VT323', monospace;
+    font-size: 20px;
+    color: var(--term-green);
+    line-height: 1.05;
+    margin-bottom: 4px;
+  }
+  .dial-desc {
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.35;
+  }
+
+  /* ───── FEEDBACK ───── */
+  .feedback {
+    border: 1px solid var(--term-green-dim);
+    background: var(--panel);
+    padding: 18px 20px;
+    display: none;
+  }
+  .feedback.show { display: block; animation: appear 0.25s ease-out; }
+  @keyframes appear {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .feedback-verdict {
+    font-family: 'VT323', monospace;
+    font-size: 26px;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .feedback.correct .feedback-verdict { color: var(--term-green); text-shadow: 0 0 8px rgba(74,222,128,0.5); }
+  .feedback.wrong .feedback-verdict   { color: var(--term-red);   text-shadow: 0 0 8px rgba(248,113,113,0.5); }
+  .feedback.partial .feedback-verdict { color: var(--term-amber); text-shadow: 0 0 8px rgba(251,191,36,0.5); }
+  .feedback.step .feedback-verdict    { color: var(--term-cyan);  text-shadow: 0 0 8px rgba(103,232,249,0.5); }
+  .feedback-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+  }
+  .feedback-body {
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--text);
+    margin-bottom: 12px;
+  }
+  .feedback-body strong { color: var(--term-cyan); }
+  .feedback-body em { color: var(--term-magenta); font-style: italic; }
+  .feedback-body code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    background: var(--bg-deep);
+    color: var(--term-cyan);
+    padding: 1px 5px;
+    border-radius: 2px;
+  }
+
+  /* Deep-dive panel */
+  .deep-dive {
+    margin-top: 14px;
+    border: 1px solid var(--term-green-dim);
+    border-radius: 2px;
+    background: var(--bg-deep);
+    overflow: hidden;
+    transition: all 0.25s ease;
+  }
+  .deep-dive.hidden { display: none; }
+  .deep-dive-toggle {
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: var(--term-cyan);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 10px 14px;
+    cursor: pointer;
+    text-align: left;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.15s ease;
+  }
+  .deep-dive-toggle:hover { background: rgba(103,232,249,0.06); }
+  .deep-dive-toggle .arrow {
+    transition: transform 0.25s ease;
+    color: var(--term-cyan);
+  }
+  .deep-dive.open .deep-dive-toggle .arrow { transform: rotate(90deg); }
+  .deep-dive-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease;
+  }
+  .deep-dive.open .deep-dive-content { max-height: 3000px; }
+  .deep-dive-inner {
+    padding: 4px 18px 18px;
+    border-top: 1px dashed var(--term-green-dim);
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--text);
+  }
+  .deep-dive-inner h4 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--term-amber);
+    margin: 14px 0 6px;
+    font-weight: 700;
+  }
+  .deep-dive-inner h4:first-child { margin-top: 12px; }
+  .deep-dive-inner p { margin-bottom: 8px; }
+  .deep-dive-inner ul {
+    list-style: none;
+    padding-left: 0;
+    margin: 6px 0 10px;
+  }
+  .deep-dive-inner li {
+    padding: 4px 0 4px 18px;
+    position: relative;
+  }
+  .deep-dive-inner li::before {
+    content: '▸';
+    position: absolute;
+    left: 0;
+    color: var(--term-green-dim);
+    font-size: 11px;
+  }
+  .deep-dive-inner strong { color: var(--term-cyan); }
+  .deep-dive-inner em { color: var(--term-magenta); font-style: italic; }
+  .deep-dive-inner code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    background: var(--panel);
+    color: var(--term-cyan);
+    padding: 1px 5px;
+    border-radius: 2px;
+  }
+  .deep-dive-inner .principle-box {
+    border-left: 2px solid var(--term-magenta);
+    padding: 8px 0 8px 14px;
+    margin: 14px 0 4px;
+    color: var(--text);
+    font-style: italic;
+    font-size: 14px;
+    background: rgba(240,171,252,0.04);
+  }
+  .deep-dive-inner .principle-box::before {
+    content: 'PRINCIPLE · ';
+    font-family: 'JetBrains Mono', monospace;
+    font-style: normal;
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    color: var(--term-magenta);
+  }
+
+  .feedback-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+  }
+  .btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 10px 18px;
+    background: transparent;
+    color: var(--term-green);
+    border: 1px solid var(--term-green);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .btn:hover {
+    background: var(--term-green);
+    color: var(--bg);
+    box-shadow: 0 0 12px rgba(74,222,128,0.5);
+  }
+  .btn.secondary { color: var(--text-dim); border-color: var(--text-dim); }
+  .btn.secondary:hover { background: var(--text-dim); color: var(--bg); box-shadow: none; }
+
+  /* ───── END SCREEN ───── */
+  .endscreen {
+    border: 1px solid var(--term-green-dim);
+    background: var(--panel);
+    padding: 34px 24px;
+    text-align: center;
+    display: none;
+  }
+  .endscreen.show { display: block; }
+  .endscreen h2 {
+    font-family: 'VT323', monospace;
+    font-size: 38px;
+    color: var(--term-amber);
+    text-shadow: 0 0 10px rgba(251,191,36,0.5);
+    margin-bottom: 4px;
+  }
+  .endscreen .grade {
+    font-family: 'VT323', monospace;
+    font-size: 110px;
+    line-height: 1;
+    color: var(--term-green);
+    text-shadow: 0 0 16px rgba(74,222,128,0.6);
+    margin: 12px 0;
+  }
+  .endscreen .unlock-msg {
+    font-family: 'VT323', monospace;
+    font-size: 22px;
+    color: var(--term-magenta);
+    text-shadow: 0 0 8px rgba(240,171,252,0.5);
+    margin-bottom: 18px;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  .endscreen .stats {
+    display: flex;
+    justify-content: center;
+    gap: 28px;
+    margin: 20px 0;
+    flex-wrap: wrap;
+  }
+  .endscreen .stat-num {
+    font-family: 'VT323', monospace;
+    font-size: 32px;
+    color: var(--term-cyan);
+    line-height: 1;
+  }
+  .endscreen .stat-lbl {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .endscreen .actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 16px;
+  }
+
+  .footnote {
+    margin-top: 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+    text-align: center;
+  }
+  .footnote .key {
+    display: inline-block;
+    padding: 1px 6px;
+    border: 1px solid var(--text-dim);
+    border-radius: 2px;
+    color: var(--term-green);
+    margin: 0 2px;
+  }
+
+  @media (max-width: 600px) {
+    .frame { padding: 16px 12px 36px; }
+    .title { font-size: 24px; }
+    .scenario-text { font-size: 15px; }
+    .dials { grid-template-columns: 1fr 1fr; }
+    .hud { gap: 8px; }
+    .hud-value { font-size: 18px; }
+    .endscreen .grade { font-size: 80px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="frame">
+
+  <header>
+    <div>
+      <div class="title">AGENT.DEBUG<span class="blink">_</span></div>
+      <div class="subtitle">// dial the right knob · 5 levels · 38 scenarios</div>
+    </div>
+    <div class="hud" id="hud-game" style="display:none;">
+      <div class="hud-item"><div class="hud-label">Level</div><div class="hud-value level" id="hud-level">1</div></div>
+      <div class="hud-item"><div class="hud-label">Round</div><div class="hud-value" id="hud-round">1/6</div></div>
+      <div class="hud-item"><div class="hud-label">Streak</div><div class="hud-value streak" id="hud-streak">0</div></div>
+      <div class="hud-item"><div class="hud-label">Score</div><div class="hud-value score" id="hud-score">0</div></div>
+    </div>
+  </header>
+
+  <section class="level-select show" id="level-select">
+    <h2>SELECT YOUR LEVEL</h2>
+    <div class="lead">// clear grade B+ to unlock the next tier · S-rank = ≥90% correct + zero wrong</div>
+    <div class="levels" id="levels-list"></div>
+    <div class="reset-row">
+      <button class="btn-tiny" id="btn-reset-progress">↺ Reset all progress</button>
+    </div>
+  </section>
+
+  <main class="stage" id="stage">
+    <section class="scenario" id="scenario">
+      <div class="scenario-header">
+        <span class="scenario-id" id="sc-id">SCENARIO ##</span>
+        <span class="scenario-meta">
+          <span class="pill" id="sc-symptom">SYMPTOM ?</span>
+          <span class="pill" id="sc-repro">?</span>
+        </span>
+      </div>
+      <div class="scenario-body">
+        <div class="scenario-prompt">incident report</div>
+        <div class="scenario-text" id="sc-text">Loading scenario...</div>
+        <div class="console" id="sc-console"></div>
+        <div class="chain-progress" id="chain-progress">
+          <div class="chain-label">▸ chain of fixes · pick in order</div>
+          <div class="chain-steps" id="chain-steps"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="dials-wrap">
+      <div class="dials-header" id="dials-header">select the dial to turn</div>
+      <div class="dials" id="dials"></div>
+    </section>
+
+    <section class="feedback" id="feedback">
+      <div class="feedback-verdict" id="fb-verdict"></div>
+      <div class="feedback-sub" id="fb-sub"></div>
+      <div class="feedback-body" id="fb-body"></div>
+      <div class="deep-dive" id="deep-dive">
+        <button class="deep-dive-toggle" id="deep-dive-toggle">
+          <span>▸ GO DEEPER · the full reasoning</span>
+          <span class="arrow">›</span>
+        </button>
+        <div class="deep-dive-content">
+          <div class="deep-dive-inner" id="deep-dive-inner"></div>
+        </div>
+      </div>
+      <div class="feedback-actions">
+        <button class="btn secondary" id="btn-quit">EXIT TO MENU</button>
+        <button class="btn" id="btn-next">NEXT SCENARIO →</button>
+      </div>
+    </section>
+
+    <section class="endscreen" id="endscreen">
+      <h2 id="end-title">LEVEL COMPLETE</h2>
+      <div class="subtitle">// debrief</div>
+      <div class="grade" id="end-grade">A</div>
+      <div class="unlock-msg" id="unlock-msg" style="display:none;"></div>
+      <div class="stats">
+        <div><div class="stat-num" id="end-correct">0</div><div class="stat-lbl">Correct</div></div>
+        <div><div class="stat-num" id="end-partial">0</div><div class="stat-lbl">Partial</div></div>
+        <div><div class="stat-num" id="end-wrong">0</div><div class="stat-lbl">Wrong</div></div>
+        <div><div class="stat-num" id="end-best">0</div><div class="stat-lbl">Best Streak</div></div>
+      </div>
+      <div class="feedback-body" id="end-summary"></div>
+      <div class="actions">
+        <button class="btn secondary" id="btn-menu">← LEVEL SELECT</button>
+        <button class="btn" id="btn-retry">RETRY LEVEL ↻</button>
+        <button class="btn" id="btn-next-level" style="display:none;">NEXT LEVEL →</button>
+      </div>
+    </section>
+  </main>
+
+  <div class="footnote">
+    keyboard: <span class="key">1–9</span> select dial · <span class="key">Enter</span> next · <span class="key">D</span> deep dive · <span class="key">Esc</span> menu
+  </div>
+
+</div>
+
+<script>
+/* ═════════════════════════════════════════════
+   AGENT.DEBUG v3 — game data + logic
+   ═════════════════════════════════════════════ */
+
+const DIALS = {
+  retrieval_k:        { name: 'Increase k',         desc: 'Pull more chunks per retrieval' },
+  decrease_k:         { name: 'Decrease k',         desc: 'Fewer chunks, less noise' },
+  chunking:           { name: 'Re-chunk corpus',    desc: 'Smaller/overlapping chunks, better boundaries' },
+  reranker:           { name: 'Add reranker',       desc: 'Cross-encoder over top-k candidates' },
+  reindex:            { name: 'Rebuild index',      desc: 'Refresh embeddings / new model' },
+  hybrid_search:      { name: 'Hybrid search',      desc: 'Add BM25 alongside vector' },
+  metadata_filter:    { name: 'Metadata filter',    desc: 'Filter by tenant/date/type before search' },
+  embedding_model:    { name: 'Swap embedding',     desc: 'Use a domain-tuned embedding model' },
+  context_order:      { name: 'Reorder context',    desc: 'Put key docs last (recency bias)' },
+  prompt_guard:       { name: 'Tighten prompt',     desc: 'Forbid guessing, require citations' },
+  system_prompt:      { name: 'Rewrite system',     desc: 'Clarify role, scope, constraints' },
+  few_shots:          { name: 'Add few-shots',      desc: 'Show desired input→output examples' },
+  context_compress:   { name: 'Compress history',   desc: 'Summarize old turns to save tokens' },
+  lower_temp:         { name: 'Lower temperature',  desc: 'Reduce sampling variance' },
+  pin_version:        { name: 'Pin model version',  desc: 'Stop silent provider updates' },
+  swap_model:         { name: 'Swap model',         desc: 'Try different / larger model' },
+  seed_lock:          { name: 'Lock seed',          desc: 'Deterministic sampling for repro' },
+  tool_schema:        { name: 'Tighten schema',     desc: 'Stricter types, required fields, output contract' },
+  tool_descriptions:  { name: 'Disambiguate tools', desc: 'Clearer descriptions, no overlap' },
+  structured_output:  { name: 'Force JSON mode',    desc: 'Constrained decoding for args' },
+  input_normalize:    { name: 'Normalize input',    desc: 'Pre-process user input before model' },
+  tool_consolidate:   { name: 'Merge tools',        desc: 'Combine overlapping tools into one' },
+  tool_split:         { name: 'Split tool',         desc: 'One tool doing too much; break it up' },
+  max_steps:          { name: 'Adjust max_steps',   desc: 'Loop budget / termination condition' },
+  stop_signal:        { name: 'Add done signal',    desc: '"You may stop when…" in prompt' },
+  retry_policy:       { name: 'Fix retry policy',   desc: 'Cap retries, backoff, surface errors' },
+  max_tokens:         { name: 'Raise max_tokens',   desc: 'Output budget per turn' },
+  planner_split:      { name: 'Add planner',        desc: 'Plan-then-execute, separate from acting' },
+  bisect_release:     { name: 'Bisect last release',desc: 'Git/config bisect to find regression' },
+  capacity_check:     { name: 'Check capacity',     desc: 'Provider throttling / model dial-down' },
+  trace_diff:         { name: 'Diff a trace',       desc: 'Compare known-good vs failing trace' },
+  eval_set:           { name: 'Build eval set',     desc: 'Make the failure reproducible & gated' },
+  rate_limit_check:   { name: 'Check rate limits',  desc: 'API quota or burst limits hit' },
+  cache_check:        { name: 'Check cache/infra',  desc: 'Stale cache, gateway timeout, warmup' },
+  rollback:           { name: 'Roll back deploy',   desc: 'Revert to last known-good build' },
+  feature_flag:       { name: 'Flag off / canary',  desc: 'Stop the bleed for users' },
+};
+
+const LEVEL_META = [
+  { num: 1, name: 'APPRENTICE',     desc: 'Clean signals, single dial. Learn the symptom→fix mapping.' },
+  { num: 2, name: 'ENGINEER',       desc: 'Intermittent failures, noisier traces, plausible decoys.' },
+  { num: 3, name: 'SENIOR',         desc: 'Multi-cause failures. The obvious dial is often wrong.' },
+  { num: 4, name: 'STAFF',          desc: 'Subtle regressions. Trust the trace, not your priors.' },
+  { num: 5, name: 'DISTINGUISHED',  desc: 'Pick 2–3 dials in the right order. Sequence matters.' },
+];
+
+const LEVELS = [
+  /* ───────────────── LEVEL 1 · APPRENTICE ───────────────── */
+  [
+    {
+      id: 'L1·01', symptom: 'A · Hallucinated', repro: 'reproducible',
+      text: 'User: <code>"what\'s our refund policy for enterprise customers?"</code> Agent confidently says 14 days. Actual doc says 30 days. Fails <strong>every time</strong>.',
+      console: [
+        ['12:04:01','info','retrieval','top_k=3 → [policy_v1, faq_general, support_email]'],
+        ['12:04:01','warn','retrieval','policy_v2_enterprise NOT in top_k'],
+        ['12:04:02','err','output','"14-day refund window" — unsupported'],
+      ],
+      options: ['reranker','lower_temp','pin_version','prompt_guard'],
+      correct: 'reranker', partial: ['prompt_guard'],
+      explain: {
+        correct: 'The right doc isn\'t in top-k. A <strong>reranker</strong> over a wider candidate pool surfaces the enterprise policy without bloating context.',
+        partial_prompt_guard: 'Forcing citations helps prevent confident wrong answers, but if the right doc isn\'t retrieved, no prompt can save you.',
+        wrong: 'Sampling and version pinning don\'t fix retrieval gaps. The model is answering from context that <strong>never contained the right doc</strong>.',
+      },
+      deepDive: {
+        rootCause: 'Pure vector similarity put generic docs above the specific enterprise policy. <em>Recall</em> looks fine on small corpora but degrades as docs accumulate near-duplicates. The enterprise policy uses phrasing semantically close to a dozen other policies; the embedding model can\'t separate them at k=3.',
+        why: [
+          'A cross-encoder reranker scores each (query, doc) pair jointly instead of comparing pre-computed embeddings. Slower per pair — that\'s why you don\'t use it for the initial fetch.',
+          'Standard setup: retrieve k=30–50 with vector search (cheap, recall-focused), then rerank the top 5–10 with a cross-encoder (expensive, precision-focused).',
+          'For this case, the enterprise policy almost certainly shows up in a wider pool — the reranker promotes it to the top.',
+        ],
+        missed: [
+          'Naively raising k brings the doc in but introduces <em>lost in the middle</em> — you trade one bug for another.',
+          'A prompt guard ("only answer if you find a doc") is a good safety net but doesn\'t fix retrieval; you just get more "I don\'t know" responses.',
+        ],
+        next: [
+          'Build an eval set of policy questions with ground-truth doc IDs; gate on recall@5 ≥ 95%.',
+          'Monitor reranker latency — it\'s your new bottleneck.',
+          'If reranking isn\'t enough, add hybrid search (BM25 + vector).',
+        ],
+        principle: 'Retrieval has two failure modes: <strong>recall</strong> (right doc not in candidate set) and <strong>ranking</strong> (right doc buried). Diagnose which before fixing.',
+      }
+    },
+    {
+      id: 'L1·02', symptom: 'B · Truncated', repro: 'reproducible',
+      text: 'Summarizing support threads. Output cuts off mid-sentence on threads with 40+ messages.',
+      console: [
+        ['14:22:09','info','context','input_tokens=11,840'],
+        ['14:22:09','info','config','max_tokens=512'],
+        ['14:22:11','warn','output','finish_reason=length'],
+      ],
+      options: ['max_tokens','chunking','lower_temp','swap_model'],
+      correct: 'max_tokens', partial: ['chunking'],
+      explain: {
+        correct: '<code>finish_reason=length</code> is the giveaway. The model wanted to keep going. <strong>Raise max_tokens</strong>.',
+        partial_chunking: 'Helpful if input were too long, but here input fits — only output is being clipped.',
+        wrong: 'Sampling and model swaps don\'t address an output token cap.',
+      },
+      deepDive: {
+        rootCause: '<code>max_tokens</code> is the output budget. When the model produces that many tokens, generation stops regardless of whether it was done. <code>finish_reason</code> tells you which limit you hit: <code>stop</code> (natural end), <code>length</code> (the cap), <code>tool_calls</code>, or <code>content_filter</code>.',
+        why: [
+          'Most APIs default <code>max_tokens</code> to 512 or 1024 — fine for one-liners, not summaries.',
+          'Set it to what the task needs plus headroom. Long-thread summaries usually want 2K–4K.',
+          'Watch the context window: <code>input_tokens + max_tokens ≤ window</code>. If raising it crowds your input, you have a different problem.',
+        ],
+        missed: [
+          'Chunking is an <strong>input</strong>-side fix. Here 11,840 input tokens is nowhere near a limit.',
+          'Models don\'t produce shorter output just because you wish they would — the budget is too small.',
+        ],
+        next: [
+          'Add output-length checks to your eval set.',
+          'Consider streaming so you can detect truncation in real time and recover.',
+          'Log <code>finish_reason</code> distributions per route; spikes in <code>length</code> are a quality signal.',
+        ],
+        principle: 'Read the finish reason before touching any other dial. The API tells you exactly which limit you hit.',
+      }
+    },
+    {
+      id: 'L1·03', symptom: 'C · Wrong tool', repro: 'reproducible',
+      text: 'User says <code>"cancel my subscription"</code>. Agent calls <code>pause_subscription</code> instead of <code>cancel_subscription</code>. Happens every time.',
+      console: [
+        ['16:40:12','warn','tools','pause_subscription.desc="end the user\'s plan"'],
+        ['16:40:12','warn','tools','cancel_subscription.desc="end the user\'s plan permanently"'],
+        ['16:40:13','err','action','wrong tool selected'],
+      ],
+      options: ['tool_descriptions','lower_temp','few_shots','swap_model'],
+      correct: 'tool_descriptions', partial: ['few_shots'],
+      explain: {
+        correct: 'Tool descriptions overlap heavily — both say "end the user\'s plan." <strong>Rewrite descriptions</strong> so they\'re mutually exclusive: pause = temporary; cancel = permanent.',
+        partial_few_shots: 'Few-shots help but treat the symptom. Fix the source of truth — the descriptions the model reads.',
+        wrong: 'Lowering temp won\'t help when the model is confidently picking the wrong tool because the descriptions invite it.',
+      },
+      deepDive: {
+        rootCause: 'Tool descriptions are the primary signal a model uses to select between tools. They\'re read into context at decision time and treated more like API docs than user-facing copy. Vague or overlapping descriptions are the #1 cause of tool-selection bugs.',
+        why: [
+          '<strong>Mutual exclusivity</strong> is the goal. Each description should answer: "when do I use this, and not the other one?"',
+          'Concretely: <code>pause</code> → "Temporarily suspend billing. User keeps access; auto-resumes. Use for vacation, sabbatical, temporary pause." <code>cancel</code> → "Permanently end the subscription. Closes access at period end. Cannot be undone. Use for quit, leave, terminate, cancel."',
+          'Both descriptions include <em>trigger phrases</em> — words the user might actually say. High leverage.',
+        ],
+        missed: [
+          'Few-shots work around the bug and compete for context tokens.',
+          'A model swap might help but it\'s a re-qualification vs. a one-line description fix.',
+        ],
+        next: [
+          'Audit every tool description for overlap with an LLM-as-judge check.',
+          'Add tests for edge phrasings: "cancel", "stop", "end", "quit", "I\'m done".',
+          'If two descriptions can\'t be made exclusive, the tools probably shouldn\'t both exist — consolidate.',
+        ],
+        principle: 'A tool\'s description is its real contract with the model. Write it like docs, not marketing.',
+      }
+    },
+    {
+      id: 'L1·04', symptom: 'D · Bad arguments', repro: 'reproducible',
+      text: 'User: <code>"book me a flight to SF next Friday"</code>. Agent calls <code>search_flights(destination="San Francisco", date="next Friday")</code>. API expects IATA codes and ISO dates.',
+      console: [
+        ['10:15:33','err','api','400: destination must be IATA (3 letters)'],
+        ['10:15:33','err','api','400: date must be ISO 8601'],
+      ],
+      options: ['input_normalize','tool_schema','few_shots','lower_temp'],
+      correct: 'input_normalize', partial: ['tool_schema','few_shots'],
+      explain: {
+        correct: 'Don\'t make the model do <strong>both</strong> intent extraction and format conversion. <strong>Normalize input</strong> deterministically: "next Friday" → ISO date, "San Francisco" → SFO. Model picks intent; code handles formats.',
+        partial_tool_schema: 'Stricter schema catches errors but doesn\'t fix the root issue — the model still has to format-convert, which is fragile.',
+        partial_few_shots: 'Examples teach format but are brittle for date math. Deterministic code beats probabilistic formatting.',
+        wrong: 'Lowering temp doesn\'t help; you\'re asking the LLM to do work that belongs in code.',
+      },
+      deepDive: {
+        rootCause: 'You\'re using probabilistic computation (an LLM) for a deterministic problem (string → IATA, phrase → ISO date). Models <em>can</em> do this, but they fail randomly: timezone edges, ambiguous city names, relative dates near DST boundaries.',
+        why: [
+          'Move format-conversion to a pre-processing step before the model sees the request. Use a library (dateparser, a geocoder) or a structured pre-pass.',
+          'Typical architecture: pre-process → model picks tool + args from a constrained set → post-process. The model\'s job is <em>understanding intent</em>, not <em>doing string transforms</em>.',
+          'Generalizes to phone numbers, currency, addresses, identifiers — anything with a canonical format.',
+        ],
+        missed: [
+          'A strict schema catches errors at the schema layer, but the model still can\'t reliably emit ISO 8601 for "next Friday" — you just get more 400s.',
+          'Few-shots teach formats statically, but "next Friday" drifts day to day.',
+        ],
+        next: [
+          'Identify your top 5 format-conversion failures; add deterministic pre-processing for each.',
+          'Use a battle-tested date parser and pin the user\'s timezone.',
+          'Consider a thin "resolve" tool the model calls first, making the conversion step inspectable.',
+        ],
+        principle: 'If a sub-task has a deterministic algorithm, use it. LLMs are for the parts without one.',
+      }
+    },
+    {
+      id: 'L1·05', symptom: 'E · Loops', repro: 'reproducible',
+      text: 'Research agent calls <code>web_search</code> 47 times in a row, never summarizes. Hits max_steps. Search results were fine.',
+      console: [
+        ['08:02:01','info','step 1','web_search("quantum computing 2026")'],
+        ['08:02:04','info','step 2','web_search("quantum computing recent")'],
+        ['08:02:07','info','step 3','web_search("quantum 2026 latest")'],
+        ['08:05:20','err','loop','max_steps=50 hit · no final answer'],
+      ],
+      options: ['stop_signal','max_steps','retry_policy','tool_descriptions'],
+      correct: 'stop_signal', partial: ['max_steps'],
+      explain: {
+        correct: 'Planner has no idea when it has enough. Add an explicit <strong>termination signal</strong>: "After 2–3 searches, synthesize and answer." Bonus: give it a <code>finish</code> tool it must call.',
+        partial_max_steps: 'Capping steps prevents runaway but doesn\'t teach the agent to stop. It\'ll still loop to the cap.',
+        wrong: 'Retry policy is for error loops, not exploration loops. Tool descriptions are fine — the bug is termination.',
+      },
+      deepDive: {
+        rootCause: 'Without a stop criterion, an agent has no notion of "enough." Each step looks like progress — slightly different query, slightly different results — but nothing says "now produce the answer." This is the agent equivalent of analysis paralysis.',
+        why: [
+          'A stop signal makes "done" a first-class concept. Two patterns: (1) explicit instruction ("after at most N searches, synthesize"), (2) a required <code>finish</code> tool the agent must call to produce the user-facing answer.',
+          'Pattern 2 is more robust — structural, and you can inspect the final answer separately from intermediate reasoning.',
+          'Both require teaching the model that <em>incomplete answers are okay</em>. Many models default to perfectionism.',
+        ],
+        missed: [
+          'Capping <code>max_steps</code> gives you truncated trajectories instead of looping ones — same UX failure, different cause.',
+          'Retry policy is for a tool that keeps failing. Here the tool succeeds; the agent just won\'t commit.',
+        ],
+        next: [
+          'Log trajectory-length distribution. A long tail of 30+ steps means most queries are fine and you have a tail problem.',
+          'Try a budget-aware system prompt: "You have a budget of 3 searches; after that you must answer."',
+          'Add an eval that checks termination on simple queries.',
+        ],
+        principle: 'An agent needs to know when to stop. If your prompt doesn\'t say so, the model will keep going.',
+      }
+    },
+    {
+      id: 'L1·06', symptom: 'F · Refusal', repro: 'reproducible',
+      text: 'Last Tuesday the agent started refusing routine medical-billing questions. <strong>No code shipped on your side.</strong> Eval suite went red.',
+      console: [
+        ['—','info','deploy','last app deploy: 11 days ago'],
+        ['—','info','model','provider=anthropic  model="claude-sonnet-latest"'],
+        ['—','warn','model','note: "-latest" alias may auto-update'],
+        ['—','err','eval','38/50 medical-billing tests FAIL'],
+      ],
+      options: ['pin_version','system_prompt','lower_temp','swap_model'],
+      correct: 'pin_version', partial: ['system_prompt'],
+      explain: {
+        correct: 'Classic <strong>silent provider update</strong>. The <code>-latest</code> alias rolled to a new model with different safety behavior. <strong>Pin the version</strong> to restore, then re-qualify before updating.',
+        partial_system_prompt: 'You could tweak the prompt to clarify "billing, not medical advice" — but you\'re fighting a moving target until you pin.',
+        wrong: 'Lowering temp doesn\'t change refusal patterns. Swapping models is bigger than needed when pinning fixes it.',
+      },
+      deepDive: {
+        rootCause: 'Provider model aliases (<code>-latest</code>, <code>-stable</code>) point at whatever the provider considers current. When they update the alias, your behavior changes silently. This is the most common cause of "nothing changed but everything broke."',
+        why: [
+          'Pinning means specifying a fully-qualified version (e.g., <code>claude-sonnet-4-5-20251015</code>) instead of an alias. Behavior is now stable across provider updates.',
+          'Tradeoff: you don\'t get free quality improvements automatically. You opt in by changing the pin and re-qualifying.',
+          'After pinning, the failure stops. Then you investigate: read the changelog, run evals against the new version, decide when to migrate.',
+        ],
+        missed: [
+          'Tweaking the system prompt might work against current behavior — but the next silent update can regress you again.',
+          'Temperature has no relationship to refusals; refusals are policy-driven.',
+        ],
+        next: [
+          'Audit every model identifier in your codebase; pin all production ones.',
+          'Track the resolved model version on every call; alert on changes.',
+          'Run your eval suite against new versions in CI before promoting them.',
+        ],
+        principle: 'If you don\'t pin your model version, your model version is pinning <em>you</em>. Treat it like any dependency.',
+      }
+    },
+  ],
+
+  /* ───────────────── LEVEL 2 · ENGINEER ───────────────── */
+  [
+    {
+      id: 'L2·01', symptom: 'A · Hallucinated', repro: 'intermittent',
+      text: 'Same question, same corpus. <strong>~30% of the time</strong> the agent invents a number. No pattern in inputs.',
+      console: [
+        ['09:11:22','info','config','temperature=0.7  top_p=0.95'],
+        ['09:11:22','info','retrieval','ANN index · ties broken non-deterministically'],
+        ['09:11:23','warn','sampling','high variance across identical prompts'],
+      ],
+      options: ['lower_temp','retrieval_k','reindex','prompt_guard','seed_lock'],
+      correct: 'lower_temp', partial: ['seed_lock','prompt_guard'],
+      explain: {
+        correct: '<strong>Intermittent + identical input</strong> = sampling variance. Drop temp toward 0 first — cheapest experiment.',
+        partial_seed_lock: 'Locking seed gives determinism but masks the underlying variance — fine for reproducing the bug, not for production stability.',
+        partial_prompt_guard: 'Helps with confident hallucinations generally, but doesn\'t address the variance itself.',
+        wrong: 'Reindexing or raising k is overkill before ruling out sampling.',
+      },
+      deepDive: {
+        rootCause: 'Temperature 0.7 with top_p 0.95 is a creative-writing setting, not factual QA. For factual tasks where you want the same answer every time, you want temperature near 0. The variance is doing exactly what you told it to.',
+        why: [
+          'Temperature controls the sharpness of token probabilities. At 0, the model picks the most likely token every step (greedy). At 1.0+, the distribution flattens.',
+          'For RAG and factual QA, 0–0.3 is typical. Higher temperatures help brainstorming and creative writing.',
+          'top_p ("nucleus sampling") caps the candidate set to the smallest set of tokens whose cumulative probability hits p. 0.95 is permissive; 0.5–0.7 is tighter.',
+        ],
+        missed: [
+          'Seed locking is a debugging tool, not a production fix. The same buggy output every time isn\'t better, just predictable.',
+          'A prompt guard helps with confident hallucinations but doesn\'t reduce variance.',
+        ],
+        next: [
+          'After dropping temperature, measure: did variance disappear? If failures persist at temp=0, you\'ve isolated the bug to retrieval or context.',
+          'Build a determinism eval: run the same query N times, check output stability.',
+          'Expose temperature per route — support (factual) wants low, brainstorming wants higher.',
+        ],
+        principle: 'Intermittent failures on identical inputs almost always have a sampling component. Pin sampling first to isolate other variables.',
+      }
+    },
+    {
+      id: 'L2·02', symptom: 'B · Truncated', repro: 'intermittent',
+      text: 'Tool that returns scraped HTML <strong>sometimes</strong> blows the context window mid-response. ~15% of sessions fail. Most work fine.',
+      console: [
+        ['11:30:01','info','tool_result','fetch_page() → 87KB'],
+        ['11:30:02','warn','context','context window 88% full'],
+        ['11:30:03','err','output','truncated · finish_reason=length'],
+      ],
+      options: ['tool_schema','max_tokens','context_compress','chunking','swap_model'],
+      correct: 'tool_schema', partial: ['context_compress'],
+      explain: {
+        correct: 'The tool returns <strong>unbounded payloads</strong>. Tighten the contract: max length, summarize before return, paginated chunks. Cap at the source, not after.',
+        partial_context_compress: 'Compressing history helps in general but doesn\'t fix the underlying issue: a tool that can return arbitrary-size payloads.',
+        wrong: 'Raising max_tokens is for output limits, not input bloat. Swapping models papers over a tool design bug.',
+      },
+      deepDive: {
+        rootCause: 'Tools that scrape, query databases, or call other APIs often have unbounded outputs by default. A "fetch this URL" tool might return 2KB or 200KB. The context window is a hard limit, and one large payload can blow it for the rest of the conversation.',
+        why: [
+          'Add a contract: max characters/tokens, optional summary mode, optional pagination. The contract is visible to your code <em>and</em> the model (via tool description).',
+          'For HTML scraping: strip boilerplate, extract main content with a readability library, truncate with a "...[truncated, call with offset=…]" marker.',
+          'Capping at the tool boundary is cheaper than compressing later — you spend tokens once, on a useful summary.',
+        ],
+        missed: [
+          'Context compression is a general technique for long conversations but a band-aid here — you\'d be summarizing junk that should never have entered context.',
+          'Larger context windows just delay the problem. A 1MB scrape overflows any window eventually.',
+        ],
+        next: [
+          'Audit every tool: what\'s its max output size? Is it bounded?',
+          'For tools with naturally variable output, expose pagination or summarization explicitly.',
+          'Add a guardrail in your agent loop: warn or fail if a single tool response exceeds N% of the window.',
+        ],
+        principle: 'Tools are integration points. Treat their output contracts like API contracts — typed, bounded, documented.',
+      }
+    },
+    {
+      id: 'L2·03', symptom: 'C · Wrong tool', repro: 'intermittent',
+      text: 'You have <code>search_orders</code>, <code>search_invoices</code>, <code>search_payments</code>. For <em>"find my last purchase"</em> the agent picks each ~⅓ of the time. Each tool returns something plausible.',
+      console: [
+        ['14:01:10','info','tools','3 tools with semantically overlapping scopes'],
+        ['14:01:10','warn','tools','no canonical "transaction" surface'],
+      ],
+      options: ['tool_consolidate','tool_descriptions','lower_temp','few_shots','tool_split'],
+      correct: 'tool_consolidate', partial: ['tool_descriptions','few_shots'],
+      explain: {
+        correct: 'Three tools serve overlapping intents. The fix is <strong>structural</strong>: consolidate into one <code>search_transactions(type=…)</code> with a typed parameter. The model picks the surface; the type narrows.',
+        partial_tool_descriptions: 'You can disambiguate descriptions, but if "purchase" legitimately maps to any of three, the model\'s uncertainty is correct. Architecture > prompt.',
+        partial_few_shots: 'Examples bias the model temporarily but don\'t fix the ambiguity in the toolset.',
+        wrong: 'Lowering temp doesn\'t resolve genuine semantic overlap. Splitting tools further makes it worse.',
+      },
+      deepDive: {
+        rootCause: 'The toolset reflects internal domain boundaries (orders, invoices, payments) that don\'t exist in user intent ("my purchases"). When user mental models and tool boundaries don\'t align, the model has to guess — and it guesses differently each time.',
+        why: [
+          'Consolidating creates one user-facing surface: <code>search_transactions(type: "order"|"invoice"|"payment"|"any", …)</code>. The model picks the surface (always right), the type filter narrows.',
+          'This is the agent equivalent of clean API design: name things how callers think, not how your internal services are organized.',
+          'You can still implement the consolidated tool by routing to the three underlying services — the model doesn\'t know or care.',
+        ],
+        missed: [
+          'Better descriptions help marginally, but if "purchase" genuinely fits all three, you\'re fighting reality.',
+          'Few-shots bias toward one tool but lose accuracy elsewhere — a refund query might now wrongly route to orders.',
+        ],
+        next: [
+          'Run an intent audit: 50 real queries, label which tool <em>should</em> fire. Look for multi-tool ambiguity.',
+          'If consolidation is too disruptive, add a router tool whose only job is to disambiguate then call one of the three.',
+          'When designing tools, anchor on user vocabulary, not internal service boundaries.',
+        ],
+        principle: 'Tools should be organized around user intent, not internal architecture. When they aren\'t, the model pays the cost.',
+      }
+    },
+    {
+      id: 'L2·04', symptom: 'D · Bad arguments', repro: 'intermittent',
+      text: 'Agent calls <code>create_event</code> correctly ~80% of the time. The other 20% it includes a hallucinated <code>location</code> field that wasn\'t in the user\'s request. Schema marks <code>location</code> as optional.',
+      console: [
+        ['10:00:01','info','tool_call','create_event(title="Standup", time="9am", location="Office")'],
+        ['10:00:01','warn','user_input','user never mentioned a location'],
+      ],
+      options: ['structured_output','tool_schema','lower_temp','system_prompt','few_shots'],
+      correct: 'system_prompt', partial: ['few_shots','tool_schema'],
+      explain: {
+        correct: 'Model is filling optional fields out of helpfulness. <strong>Add a system-prompt rule</strong>: "Only set fields the user explicitly provided; leave optional fields null otherwise." Direct, cheap, targets the behavior.',
+        partial_few_shots: 'Showing examples of "leave it null" trajectories helps reinforce the rule.',
+        partial_tool_schema: 'Could remove the field, but you\'d lose legitimate uses. The behavior is the bug, not the schema.',
+        wrong: 'JSON mode enforces format, not field-omission policy. Lower temp won\'t change the model\'s helpfulness bias.',
+      },
+      deepDive: {
+        rootCause: 'Modern LLMs are trained to be helpful. When they see an optional field, they often fill it with a best guess rather than leaving it blank — especially if it makes the action feel complete. This is "helpfulness drift" and it shows up most in structured-output settings.',
+        why: [
+          'A direct system-prompt rule is cheap and targeted: "When calling tools, only set fields the user explicitly mentioned. For optional fields not specified, omit or null. Do not infer values you weren\'t given."',
+          'It works because tool calls are governed by the system prompt at decision time — the rule is visible right where the model needs it.',
+          'You can be even more explicit: "Common mistake: do not invent a <code>location</code> if the user didn\'t mention one."',
+        ],
+        missed: [
+          'Few-shots reinforce the behavior, but the system prompt is cheaper and more direct.',
+          'Removing the optional field works but loses functionality — users who <em>do</em> mention a location can\'t have it captured.',
+          'JSON mode enforces structural validity, not semantic content. The model can return valid JSON with hallucinated values.',
+        ],
+        next: [
+          'Audit other tools for the same pattern — models over-fill across the board.',
+          'Build an eval: inputs that mention only a subset of fields, assert missing fields aren\'t set.',
+          'Encode a convention in your tool-calling guidelines: optional fields populated <em>only</em> from explicit user statements.',
+        ],
+        principle: 'Helpfulness can become hallucination at the structured-output boundary. Govern it explicitly.',
+      }
+    },
+    {
+      id: 'L2·05', symptom: 'E · Loops', repro: 'reproducible',
+      text: 'Agent calls <code>create_ticket</code>, gets a 500 error, retries. Same 500. Retries 12 more times, then gives up. The API has been down for an hour.',
+      console: [
+        ['15:00:01','err','api','create_ticket → 500 (attempt 1)'],
+        ['15:00:04','err','api','create_ticket → 500 (attempt 2)'],
+        ['15:00:09','err','api','create_ticket → 500 (attempt 3)'],
+        ['15:00:16','err','api','... 10 more identical attempts'],
+      ],
+      options: ['retry_policy','max_steps','stop_signal','tool_descriptions'],
+      correct: 'retry_policy', partial: ['max_steps'],
+      explain: {
+        correct: 'The retry loop is the bug — same call, same error, no backoff, no surface to the user. <strong>Fix retry policy</strong>: cap retries, exponential backoff, surface persistent errors as a user-visible failure the model can reason about.',
+        partial_max_steps: 'Stops the bleeding but doesn\'t teach the agent to <em>recognize</em> a persistent error.',
+        wrong: 'Stop signal is for exploration loops, not error loops. Tool descriptions are fine; the tool itself is broken.',
+      },
+      deepDive: {
+        rootCause: 'When a tool returns an error, the model often retries — sometimes with identical args. Without an explicit retry policy in the agent framework, this cascades into pathological behavior, especially during a downstream outage.',
+        why: [
+          'Retry policy belongs in the framework or tool wrapper, not the model. Standard: cap retries (1–3), exponential backoff (2s, 4s, 8s), and after the cap return a clear error: "create_ticket failed 3× with a 500. The service is likely down. Inform the user and stop."',
+          'Key insight: <strong>persistent errors should become user-visible</strong>. The model shouldn\'t silently retry into oblivion.',
+          'Differentiate transient errors (timeouts, 5xx, rate limits) from permanent (4xx, validation). Retry transients, fail fast on permanents.',
+        ],
+        missed: [
+          'Capping max_steps prevents runaway but the user still gets "we tried 50 things and gave up" instead of "the ticketing system is down."',
+          'Stop signal is "I have enough info, stop exploring" — different from "this tool keeps failing."',
+        ],
+        next: [
+          'Add retry policy to your agent framework if it lacks one. Most don\'t by default.',
+          'Build a tool-health dashboard — persistent failures across users are an incident.',
+          'Give tool errors descriptive, model-readable messages so the model can communicate the issue.',
+        ],
+        principle: 'Retries belong in your infrastructure, not your model. Make persistent failures into first-class signals.',
+      }
+    },
+    {
+      id: 'L2·06', symptom: 'F · Refusal', repro: 'intermittent',
+      text: 'Agent refuses a fraction of safe questions about <em>cooking with alcohol</em>. ~10% refusal rate. No deploy changes, no provider changes. Recent prompt tweak added a "be cautious about safety-sensitive topics" line.',
+      console: [
+        ['—','info','deploy','last deploy: 2 days ago (prompt update)'],
+        ['—','info','diff','+ "be cautious about safety-sensitive topics"'],
+        ['—','warn','eval','cooking-with-alcohol refusal rate: 0% → 12%'],
+      ],
+      options: ['system_prompt','lower_temp','pin_version','bisect_release','few_shots'],
+      correct: 'system_prompt', partial: ['bisect_release','few_shots'],
+      explain: {
+        correct: 'The recent prompt addition is too vague — "safety-sensitive" is broad enough that the model over-applies it. <strong>Rewrite</strong> with a scoped list: "Decline only X, Y, Z. Cooking, household chemistry, etc. are fine."',
+        partial_bisect_release: 'Right instinct — and the trace already shows the diff. Now fix the diff.',
+        partial_few_shots: 'Examples of safe-topic responses help, but the prompt is the lever that introduced the regression.',
+        wrong: 'Pinning model version doesn\'t help when the issue is your own prompt. Lower temp won\'t fix a policy-driven refusal.',
+      },
+      deepDive: {
+        rootCause: 'Vague safety language in a system prompt invites over-application. "Be cautious about safety-sensitive topics" reads as "if in doubt, refuse," and the model finds "alcohol" close enough to trigger. The base model isn\'t the problem; your prompt is.',
+        why: [
+          'Replace vague directives with scoped ones: "Refuse requests that ask for: [explicit list]. Cooking, recipes, hobby chemistry, common household topics are explicitly in scope."',
+          'Negative scoping is powerful — telling the model what <em>not</em> to refuse is often more effective than what to refuse.',
+          'If you have a real safety policy, externalize it: a separate classifier or guardrail enforces policy, the agent prompt stays focused on the task.',
+        ],
+        missed: [
+          'Bisecting was the right instinct and the trace shows you already did it — the next step is fixing the diff.',
+          'Few-shots reinforce scope but don\'t fix the directive\'s ambiguity.',
+        ],
+        next: [
+          'Build a refusal eval: 100 in-scope + 50 out-of-scope queries with expected behavior. Run on every prompt change.',
+          'Track refusal rate as a top-line metric per route.',
+          'When writing safety language, prefer concrete examples to abstract categories.',
+        ],
+        principle: 'Vague safety prompts produce vague safety behavior. Be specific about the boundary.',
+      }
+    },
+    {
+      id: 'L2·07', symptom: 'G · Latency', repro: 'reproducible',
+      text: 'P50 latency was 2s, now it\'s 8s. No deploys. No traffic increase. <strong>One specific endpoint</strong> in your tool catalog is the culprit — every session that touches it stalls.',
+      console: [
+        ['—','info','tool_latency','search_products: p50 was 200ms, now 4200ms'],
+        ['—','info','provider','no changes to LLM call latency'],
+      ],
+      options: ['capacity_check','rate_limit_check','trace_diff','max_steps','cache_check'],
+      correct: 'rate_limit_check', partial: ['capacity_check','cache_check'],
+      explain: {
+        correct: 'Single tool, sudden latency jump — classic <strong>rate-limit throttling</strong> on that downstream API. Check quota headers, recent traffic patterns, or a noisy neighbor burning your bucket.',
+        partial_capacity_check: 'Same family — but capacity-check is more for LLM providers dialing models down. This is your tool\'s upstream.',
+        partial_cache_check: 'A cache miss could explain it but wouldn\'t persist for hours. Worth checking second.',
+        wrong: 'Trace diff confirms the bottleneck (you\'ve already done that). max_steps doesn\'t change per-call latency.',
+      },
+      deepDive: {
+        rootCause: 'External APIs throttle when you exceed rate limits — sometimes obviously (429s), sometimes silently (added latency, request queuing). A sudden 20× latency jump on one endpoint with no other changes is the canonical fingerprint.',
+        why: [
+          'Check the API\'s response headers: <code>X-RateLimit-Limit</code>, <code>X-RateLimit-Remaining</code>, <code>Retry-After</code>. They tell you immediately if you\'re throttled.',
+          'Common causes: traffic shifted to a new pattern, a shared key got revoked, your account quota was lowered.',
+          'Mitigations: client-side rate limiting, batching, aggressive caching, a higher quota, distributing across keys.',
+        ],
+        missed: [
+          'Capacity check is the closest cousin — but typically refers to LLM-provider capacity, not your downstream tool API.',
+          'Cache misses cause cold-start latency but resolve quickly. A sustained 20× degradation isn\'t a cache pattern.',
+        ],
+        next: [
+          'Add rate-limit headers to your observability — track <code>X-RateLimit-Remaining</code> per endpoint.',
+          'For tools wrapping external APIs, build in retry-with-backoff and a circuit breaker.',
+          'If you can\'t avoid the limit, batch and cache — a tool calling the API 50×/session can often drop to 5×.',
+        ],
+        principle: 'External APIs are not infinite. When a single tool slows down, look at its quotas first.',
+      }
+    },
+    {
+      id: 'L2·08', symptom: 'A · Hallucinated', repro: 'reproducible',
+      text: 'Internal docs search. Agent quotes a policy that <em>does exist</em>, but cites the <strong>wrong team\'s version</strong> — Marketing\'s expense policy instead of Engineering\'s. The correct doc is in the index and was retrieved — it just wasn\'t picked.',
+      console: [
+        ['—','info','retrieval','top_k=5 → [marketing_expense, eng_expense, hr_expense, finance_expense, sales_expense]'],
+        ['—','warn','ranking','marketing_expense ranked #1 (cosine 0.84)'],
+        ['—','warn','ranking','eng_expense ranked #2 (cosine 0.83)'],
+      ],
+      options: ['metadata_filter','reranker','retrieval_k','prompt_guard','embedding_model'],
+      correct: 'metadata_filter', partial: ['reranker','embedding_model'],
+      explain: {
+        correct: 'The right doc <em>is</em> retrieved — the problem is <strong>tenant/team filtering</strong>. Filter by the user\'s team metadata <em>before</em> search. No fuzzy logic needed; this is a hard constraint.',
+        partial_reranker: 'A reranker might help if it has team context, but you\'re using fuzzy matching for a constraint that should be exact.',
+        partial_embedding_model: 'A better embedding might separate the docs, but team affiliation isn\'t semantic — it\'s a hard filter.',
+        wrong: 'Raising k doesn\'t help when the wrong doc is already #1. Prompt guards only matter once context is right.',
+      },
+      deepDive: {
+        rootCause: 'You\'re using semantic search for a constraint that\'s actually a hard filter. "Engineer asking about their team\'s policy" should never return Marketing\'s, but cosine similarity doesn\'t know that. The right doc is 0.83, the wrong one 0.84 — the 0.01 difference is noise.',
+        why: [
+          'Metadata filtering happens <em>before</em> the vector search. The space shrinks to docs tagged with the user\'s team. Now top-1 is guaranteed correct.',
+          'Generalizes: tenant ID, document type, date ranges, language, access permissions — anything that should be a hard constraint should be a pre-filter, not a ranking signal.',
+          'Most vector DBs support this natively (Pinecone metadata filters, pgvector WHERE clauses). Usually a one-line change.',
+        ],
+        missed: [
+          'A reranker might learn to weight team affiliation, but you\'d be training a fuzzy classifier to enforce a binary rule. Wasted complexity.',
+          'A better embedding might separate docs more, but team affiliation is structured metadata — don\'t encode it semantically.',
+        ],
+        next: [
+          'Audit retrieval for missing pre-filters: tenant, language, date, type, ACL.',
+          'Add metadata filtering before reranking in new RAG systems — simpler, addresses more failure modes.',
+          'Add an access-control eval: queries from user A should never return docs they can\'t access.',
+        ],
+        principle: 'Hard constraints belong in filters, not in similarity scores.',
+      }
+    },
+  ],
+];
+/* ───────────────── LEVEL 3 · SENIOR ───────────────── */
+LEVELS.push([
+  {
+    id: 'L3·01', symptom: 'A · Hallucinated', repro: 'reproducible',
+    text: 'Agent\'s answers got worse last week. Retrieval looks fine — the right docs are in top-k. The model still gets details wrong. <strong>You raised k from 3 to 10 last Tuesday</strong> to "improve recall."',
+    console: [
+      ['—','info','retrieval','top_k=10 (was 3 before Tue)'],
+      ['—','info','context','avg context length: 4K → 14K tokens'],
+      ['—','warn','eval','factuality: 92% → 78% since k bump'],
+      ['—','info','note','correct doc is consistently in top_k'],
+    ],
+    options: ['decrease_k','reranker','context_order','prompt_guard','swap_model'],
+    correct: 'decrease_k', partial: ['reranker','context_order'],
+    explain: {
+      correct: '<strong>Counterintuitive but correct: lower k.</strong> You added recall at the cost of precision — the model is getting lost in noise (<em>lost in the middle</em>). When the right doc is already in a smaller top-k, fewer chunks beats more.',
+      partial_reranker: 'A reranker over the wider k=10 could keep recall and restore precision. Defensible if you genuinely need the wider pool.',
+      partial_context_order: 'Putting the best doc last helps with lost-in-the-middle, but if you don\'t need k=10, just shrink it.',
+      wrong: 'Prompt guards and model swaps don\'t fix a precision-recall tradeoff you introduced on purpose.',
+    },
+    deepDive: {
+      rootCause: 'The "Lost in the Middle" finding (Liu et al., 2023) showed LLMs reliably pay more attention to the start and end of long contexts and miss the middle. Raising k took the same correct doc and surrounded it with distractors, pushing it into the middle where the model is least likely to attend.',
+      why: [
+        'You measured: factuality dropped 14 points right when you raised k. The correct doc was already in top-3. There was no recall problem to solve.',
+        'Lowering k back to 3–4 restores precision, latency, and cost.',
+        'General rule: add context only as much as you need. Recall@k that plateaus means k is high enough; going further is pure noise.',
+      ],
+      missed: [
+        'A reranker is right if you need k=10 for another reason (e.g., a downstream step that uses multiple docs). But "improve recall" wasn\'t a real problem here.',
+        'Reordering context works around lost-in-the-middle but doesn\'t address having docs you don\'t need.',
+      ],
+      next: [
+        'Measure recall@k for your eval set; find the smallest k where recall plateaus.',
+        'Evaluate quality before deploying retrieval-parameter changes. "More recall" is not automatically better.',
+        'Track context length vs. factuality — the curve is usually an inverted U.',
+      ],
+      principle: '<em>Lost in the middle</em> is real. Context is a budget — spend it deliberately.',
+    }
+  },
+  {
+    id: 'L3·02', symptom: 'A · Hallucinated', repro: 'reproducible',
+    text: 'Agent confidently answers questions about a product feature that <strong>doesn\'t exist</strong>. The docs index has no mention of it. The user\'s question describes it accurately as if it were real.',
+    console: [
+      ['—','info','user','asked about "smart bundle" feature'],
+      ['—','info','retrieval','top_k=5 returned related but unrelated docs'],
+      ['—','warn','retrieval','no doc mentions "smart bundle"'],
+      ['—','err','output','agent invented detailed specs'],
+    ],
+    options: ['prompt_guard','reranker','retrieval_k','lower_temp','eval_set'],
+    correct: 'prompt_guard', partial: ['eval_set'],
+    explain: {
+      correct: 'No amount of retrieval tuning helps when the answer <em>isn\'t in the corpus</em>. The fix is a <strong>refusal posture</strong>: "If the retrieved docs don\'t address the question, say so. Do not fabricate."',
+      partial_eval_set: 'Build an eval set of "questions about things that don\'t exist" to gate this — the right second move after fixing the prompt.',
+      wrong: 'Reranking and raising k can\'t surface a doc that doesn\'t exist. Lower temp won\'t stop a confident fabrication; it makes it more consistent.',
+    },
+    deepDive: {
+      rootCause: 'RAG systems often assume questions have answers in the corpus. When they don\'t, the model still tries to be helpful — improvising from related docs and the question itself, producing plausible fabrications. Retrieval did its job; the failure is in synthesis.',
+      why: [
+        'A grounding prompt sets the rules: "Only answer from the retrieved documents. If they don\'t contain the answer, say \'I don\'t see anything about that in our documentation\' and stop. Do not infer, extrapolate, or fabricate."',
+        'Pair the prompt with structured input: present docs with citations and require the model to cite. If it can\'t cite, it can\'t answer.',
+        'Stronger: a separate "is the answer in these docs?" classifier as a pre-step — cheap, deterministic, bypasses the synthesis model for out-of-corpus queries.',
+      ],
+      missed: [
+        'Reranking, larger k, better embeddings — none create information that isn\'t in the corpus.',
+        'Lower temperature makes hallucinations more consistent, not less frequent.',
+      ],
+      next: [
+        'Build an out-of-corpus eval: questions whose answers don\'t exist. The agent should refuse, not improvise.',
+        'Track "fabrication rate" separately from "wrong-answer rate" — different failure modes, different fixes.',
+        'Consider showing the user what was retrieved when you refuse.',
+      ],
+      principle: 'A RAG system without a refusal posture will fabricate. Teach the model what \'I don\'t know\' looks like.',
+    }
+  },
+  {
+    id: 'L3·03', symptom: 'C · Wrong tool', repro: 'reproducible',
+    text: 'Agent uses <code>web_search</code> for questions answerable from your internal docs. Internal RAG tool exists and works. <strong>Tool descriptions are clear and non-overlapping.</strong>',
+    console: [
+      ['—','info','tools','docs_search(): "search internal product docs"'],
+      ['—','info','tools','web_search(): "search the public web"'],
+      ['—','info','system','no guidance on which to prefer'],
+      ['—','warn','behavior','70% of internal-doc queries → web_search'],
+    ],
+    options: ['system_prompt','tool_descriptions','few_shots','tool_consolidate','lower_temp'],
+    correct: 'system_prompt', partial: ['few_shots','tool_descriptions'],
+    explain: {
+      correct: 'Descriptions are clear, but there\'s no <strong>priority</strong>. Add to the system prompt: "For product/company questions, always try docs_search first. Use web_search only for general or current-events info."',
+      partial_few_shots: 'Examples reinforce the priority but the system prompt is the source of truth.',
+      partial_tool_descriptions: 'You could fold priority into descriptions, but that couples policy to tool definition. Cleaner in the system prompt.',
+      wrong: 'Lower temp won\'t change the model\'s preference. Consolidating into one tool loses useful structure.',
+    },
+    deepDive: {
+      rootCause: 'Tool descriptions tell the model what each tool does; the system prompt tells it how to <em>choose</em>. When both tools are valid for a query, the model picks based on training priors — and most pre-training reinforces "search the web" as the default.',
+      why: [
+        'The system prompt is where policy lives: "When the user asks about [our product / our processes], always call docs_search first. Only fall back to web_search if docs_search returns nothing relevant."',
+        'Make the fallback structural: "If docs_search returns 0 results, web_search is acceptable." Deterministic ordering.',
+        'For multi-tool routing, system prompt > tool descriptions for cross-cutting policy.',
+      ],
+      missed: [
+        'Folding priority into a description works but bleeds policy into the tool definition — with N tools, every description has to mention every other tool.',
+        'Few-shots reinforce the choice but suffer positional decay over long conversations.',
+      ],
+      next: [
+        'Document tool-selection policy alongside your tool catalog.',
+        'Build a tool-selection eval: queries labeled with the "right" tool.',
+        'For agents with many tools, consider a router pattern: first call picks a category, second picks the tool.',
+      ],
+      principle: 'Tool descriptions say <em>what</em>. The system prompt says <em>when</em>. Keep them separate.',
+    }
+  },
+  {
+    id: 'L3·04', symptom: 'D · Bad arguments', repro: 'reproducible',
+    text: 'A single tool, <code>run_analytics</code>, takes 14 parameters. Agent fills required fields correctly but passes wrong combinations of optional params ~40% of the time, producing nonsense results.',
+    console: [
+      ['—','info','schema','run_analytics: 4 required, 10 optional fields'],
+      ['—','warn','schema','optional fields are interdependent (some only valid together)'],
+      ['—','err','output','invalid param combinations not rejected by schema'],
+    ],
+    options: ['tool_split','tool_schema','few_shots','structured_output','system_prompt'],
+    correct: 'tool_split', partial: ['tool_schema','few_shots'],
+    explain: {
+      correct: 'One tool with 14 params is doing too much. <strong>Split into smaller tools</strong> that encode the valid combinations as separate surfaces. Each tool has a focused job; invalid combinations become impossible to express.',
+      partial_tool_schema: 'You could express interdependence in JSON Schema (oneOf, allOf), but the result is a complex schema the model still has to navigate.',
+      partial_few_shots: 'Examples help, but they don\'t prevent invalid combinations — just make them less likely.',
+      wrong: 'JSON mode enforces format, not semantic validity. System-prompt rules for 14 params get ignored.',
+    },
+    deepDive: {
+      rootCause: 'Models struggle with conditional parameter logic. "If granularity=hour, date_range must be ≤7 days, unless aggregation=raw…" is exactly the kind of rule that gets dropped 40% of the time. The schema describes parameters but not the relationships between them.',
+      why: [
+        'Splitting encodes valid combinations structurally: <code>run_hourly_analytics(...)</code>, <code>run_daily_analytics(...)</code>, <code>run_raw_export(...)</code> — each with only the parameters that make sense in its mode.',
+        'Same principle as <em>making illegal states unrepresentable</em> in type design — constraints in the type system can\'t be violated; constraints in prose can.',
+        'Splitting also makes each tool easier to document, describe, and test in isolation.',
+      ],
+      missed: [
+        'JSON Schema supports conditional validation, but reading and respecting it reliably is hard for models, and the schema gets large.',
+        'Few-shots covering combinations need O(N²) examples; splitting reduces this to O(N).',
+      ],
+      next: [
+        'Audit your catalog for parameter count. Tools with >5 optional params are a smell.',
+        'Prefer multiple narrow tools to one wide one — composition is the model\'s strength.',
+        'For tools that genuinely need many params, use a two-step "configure → execute" pattern.',
+      ],
+      principle: 'A tool\'s argument surface is its interface. Narrow interfaces are easier to use correctly — for models and humans.',
+    }
+  },
+  {
+    id: 'L3·05', symptom: 'E · Loops', repro: 'reproducible',
+    text: 'Complex multi-step task ("plan a marketing campaign"). Agent gets stuck: tries an action, evaluates, tweaks, re-tries, infinitely. Each step is locally reasonable. <strong>Stop signal is in the prompt.</strong>',
+    console: [
+      ['—','info','system','"You may stop when the plan is complete"'],
+      ['—','info','behavior','agent perpetually refines, never declares done'],
+      ['—','warn','pattern','execution + evaluation interleaved'],
+    ],
+    options: ['planner_split','stop_signal','max_steps','few_shots','system_prompt'],
+    correct: 'planner_split', partial: ['few_shots','system_prompt'],
+    explain: {
+      correct: 'When one model both <em>plans</em> and <em>executes</em>, it can\'t tell when the plan is done — every new context invites another tweak. <strong>Split planner from executor</strong>: planner produces a finite step list, executor runs it, no re-planning mid-flight.',
+      partial_few_shots: 'Examples of "produce plan → execute → stop" trajectories help, but the architecture is the root issue.',
+      partial_system_prompt: 'You\'ve already got a stop signal; a stronger one might help, but the structural fix is splitting roles.',
+      wrong: 'max_steps caps it but doesn\'t solve completion-detection. Stop signal is already present.',
+    },
+    deepDive: {
+      rootCause: 'A single model that plans, acts, and evaluates has no separation between "deciding what to do" and "doing it." Every new piece of execution info invites re-evaluation, which invites re-planning, ad infinitum.',
+      why: [
+        'Plan-then-execute splits the roles: a planner produces a finite, ordered list of steps; an executor runs them without re-planning. Re-planning happens only at explicit checkpoints.',
+        'Concrete pattern: Step 1 — "produce a JSON list of steps to accomplish X." Step 2 — iterate the list, calling the model per step with only that step\'s context. Re-plan only on hard failures.',
+        'Variants: ReAct, Plan-and-Solve, hierarchical planning. Shared insight: planning and acting need different mindsets.',
+      ],
+      missed: [
+        'You already have a stop signal — making it louder won\'t help. The model genuinely can\'t tell when the plan is done.',
+        'max_steps caps the bleeding but produces truncated work instead of completed work.',
+      ],
+      next: [
+        'Identify which tasks need plan-then-execute. Simple one-shot tasks don\'t; multi-step ones often do.',
+        'Make plans explicit and inspectable — a serialized plan can be reviewed, edited, resumed.',
+        'For deeply recursive tasks, consider tree-of-thought: explore a few candidate plans, pick one, execute.',
+      ],
+      principle: 'Planning and executing are different modes. Mixing them in one model invites infinite refinement.',
+    }
+  },
+  {
+    id: 'L3·06', symptom: 'B · Truncated', repro: 'intermittent',
+    text: 'Output truncation happens randomly across long conversations. <code>max_tokens</code> is generous (4K). Single-turn outputs are fine. <strong>Failures concentrate in conversations 10+ turns deep.</strong>',
+    console: [
+      ['—','info','context','turn 12 input_tokens=124K / 128K window'],
+      ['—','warn','context','older turns + tool calls eating window'],
+      ['—','err','output','finish_reason=length on short responses'],
+    ],
+    options: ['context_compress','max_tokens','chunking','swap_model','system_prompt'],
+    correct: 'context_compress', partial: ['swap_model'],
+    explain: {
+      correct: 'You\'re running out of <strong>context window</strong>, not output budget. <strong>Compress history</strong>: summarize old turns, drop verbose tool outputs, keep only what\'s needed for the current task.',
+      partial_swap_model: 'A larger context window buys time but doesn\'t solve unbounded context growth — you\'ll hit it again.',
+      wrong: 'Raising max_tokens makes it worse (less room for output). Chunking is for inputs; this is conversational state.',
+    },
+    deepDive: {
+      rootCause: 'Multi-turn conversations accumulate state: user turns, model responses, tool calls, tool results. Without active management this grows linearly (or worse, with large tool payloads). Eventually you hit the window limit and there\'s no room for the response.',
+      why: [
+        'Compression strategies vary: (1) summarize old turns into a running synopsis, (2) drop verbose tool outputs after they\'re used, (3) use a smaller model to compress an older window.',
+        'Trigger matters: compress when context exceeds N% of the window, not every turn.',
+        'Key design question: what state needs to persist? Usually "a summary of decisions made," not the full transcript.',
+      ],
+      missed: [
+        'Swapping to a larger window buys time but a long-enough conversation overflows any window.',
+        'Raising max_tokens actively makes it worse — carving more space out of an already-full window.',
+      ],
+      next: [
+        'Add a "context budget" metric; alert when sessions trend toward the limit.',
+        'For tool-heavy agents, the biggest win is compressing tool outputs after they\'re consumed.',
+        'Design conversation state explicitly — verbatim history is rarely the answer for long sessions.',
+      ],
+      principle: 'Conversation history is a budget, not a free resource. Manage it like one.',
+    }
+  },
+  {
+    id: 'L3·07', symptom: 'F · Tone', repro: 'intermittent',
+    text: 'Customer support agent occasionally responds in formal corporate-speak when the user is being casual. Brand wants a friendly tone. Examples of friendly tone exist in the prompt.',
+    console: [
+      ['—','info','system','"Be friendly and conversational"'],
+      ['—','info','few-shot','3 examples of friendly responses included'],
+      ['—','warn','pattern','tone drift increases after 5+ turn conversations'],
+    ],
+    options: ['system_prompt','few_shots','lower_temp','context_compress','swap_model'],
+    correct: 'few_shots', partial: ['system_prompt','context_compress'],
+    explain: {
+      correct: 'You have 3 few-shots up front, but they\'re <strong>far away</strong> by turn 5. Recency wins. <strong>Add more examples</strong> closer to the user turn, or insert a high-quality example just before each generation. Few-shots are positional.',
+      partial_system_prompt: 'Strengthening the system prompt helps marginally but suffers the same recency problem.',
+      partial_context_compress: 'Compressing history while preserving the few-shots is a clever fix in this family.',
+      wrong: 'Lower temp won\'t change a tone drift driven by context positioning. Swapping models is a sledgehammer.',
+    },
+    deepDive: {
+      rootCause: 'Few-shot examples and system prompts at the top of context become weaker influences as a conversation progresses — the model attends more to recent content. By turn 5, the few-shots are 5,000+ tokens away, their stylistic signal diluted by recent conversation.',
+      why: [
+        'Two patterns help: (1) inject a fresh few-shot example right before each generation, matched to the situation; (2) "stylistic anchors" — short tone reminders interleaved into the system prompt or before the user turn.',
+        'For consistency over long sessions, dynamic example injection beats static examples up top. Cost: some token overhead per turn.',
+        'Style-transfer prompts ("rewrite this in the brand voice as a final step") also work but add latency.',
+      ],
+      missed: [
+        'A stronger system prompt helps but degrades with the same positional decay.',
+        'Lower temperature reduces variance but not the model\'s drift toward formal language under long contexts.',
+      ],
+      next: [
+        'Measure tone drift directly: classify response tone per turn, plot drift over session length.',
+        'Track which sessions drift — often correlates with formal tool outputs pulling the model formal.',
+        'For brand-critical apps, consider a final-pass "stylize" model.',
+      ],
+      principle: 'Few-shots are positional. Distance from the generation point matters more than presence in context.',
+    }
+  },
+  {
+    id: 'L3·08', symptom: 'G · Cost', repro: 'reproducible',
+    text: 'Inference cost up <strong>2.3×</strong>. Outputs fine. No code changes. Token-per-call distribution unchanged. <strong>Total calls per session up 3×.</strong>',
+    console: [
+      ['—','info','metrics','avg llm_calls per session: 6 → 18'],
+      ['—','info','metrics','avg tokens per call: unchanged'],
+      ['—','info','metrics','avg tool_calls per session: unchanged'],
+      ['—','warn','pattern','spike correlates with new "validation" step'],
+    ],
+    options: ['trace_diff','bisect_release','system_prompt','cache_check','planner_split'],
+    correct: 'trace_diff', partial: ['bisect_release','system_prompt'],
+    explain: {
+      correct: 'Calls tripled, tokens steady, no deploy — somewhere a loop is doing extra LLM calls. <strong>Diff a recent trace vs. an old one</strong>. The "new validation step" hint suggests an inner loop calling the LLM per item.',
+      partial_bisect_release: 'No deploy on your side, but bisecting recent config/prompt changes could surface it. trace_diff is faster.',
+      partial_system_prompt: 'Possible the prompt now invites more reasoning loops, but you don\'t know until you look at the trace.',
+      wrong: 'Cache check is for cold-start latency, not call volume. Planner split is a fix once you know what\'s looping.',
+    },
+    deepDive: {
+      rootCause: 'Cost regressions in agent systems almost always have a structural cause: a new loop, a regressed early-exit, a tool that newly invokes the LLM internally, a feature flag turning on extra processing. Tokens-per-call flat while call count tripled means the model is doing the same work, more times.',
+      why: [
+        'A trace diff compares the call graph of a cheap session against an expensive one. Look for new nodes, repeated patterns, fan-out points.',
+        'The hint ("new validation step") is the smoking gun: a validation pass running per item multiplies calls by item count. The trace confirms.',
+        'Once you find the loop, the fix is usually local: batch items into one call, cache validation results, skip unchanged items.',
+      ],
+      missed: [
+        'Bisecting is parallel-useful but slower if you have the trace in hand.',
+        'System-prompt tweaks <em>can</em> introduce extra loops, but with no deploys that\'s unlikely.',
+      ],
+      next: [
+        'Keep "exemplar good" traces from before regressions for quick comparison.',
+        'Add per-feature LLM call counters.',
+        'Cost dashboards should split by component: LLM calls, tool calls, retries, planning overhead.',
+      ],
+      principle: 'When the bill goes up but tokens-per-call don\'t, look for a new loop. The trace will show you which one.',
+    }
+  },
+]);
+
+/* ───────────────── LEVEL 4 · STAFF ───────────────── */
+LEVELS.push([
+  {
+    id: 'L4·01', symptom: 'A · Hallucinated', repro: 'intermittent',
+    text: 'Agent answers correctly on dev/staging. Fails on prod, intermittently. Same prompt, model, tools. Eval suite passes. <strong>The corpus differs: prod has 50× more docs.</strong>',
+    console: [
+      ['—','info','env','staging: 2K docs · prod: 100K docs'],
+      ['—','info','retrieval','same embedding model in both envs'],
+      ['—','warn','recall','staging recall@5: 94% · prod recall@5: 67%'],
+      ['—','info','index','flat HNSW · ef_search=40'],
+    ],
+    options: ['retrieval_k','embedding_model','reranker','reindex','chunking','hybrid_search'],
+    correct: 'hybrid_search', partial: ['reranker','embedding_model'],
+    explain: {
+      correct: 'At scale, pure vector search degrades — near-duplicates crowd top-k. <strong>Add BM25 (hybrid search)</strong>. Lexical signals (product names, IDs, error codes) cut through semantic noise.',
+      partial_reranker: 'A reranker over a wider pool helps too, often paired with hybrid. Either is defensible; hybrid addresses recall first.',
+      partial_embedding_model: 'Domain-tuned embeddings help, but it\'s a heavier change than adding BM25.',
+      wrong: 'Raising k alone doesn\'t fix recall@5 if the right doc isn\'t in top-100. Chunking and reindexing don\'t address scale.',
+    },
+    deepDive: {
+      rootCause: 'Vector search uses dense embeddings — every doc is a point in high-dimensional space, similarity is cosine distance. Great for "find docs about a topic," but it degrades as corpora grow: docs cluster densely, and queries with distinctive terms (names, IDs, version numbers) lose those signals to averaging.',
+      why: [
+        'BM25 is classical lexical search: scores docs by term overlap weighted by inverse document frequency. Great at exactly what vector search is bad at — surfacing docs sharing rare, specific terms.',
+        'Hybrid fuses both: each query runs through both retrievers, scores are normalized and combined (often reciprocal rank fusion). Top-k from the combined ranking.',
+        'For 100K-doc corpora, hybrid typically recovers 15–30 points of recall@5 over pure vector. Many vector DBs have it built in.',
+      ],
+      missed: [
+        'A reranker over a wider k=50 helps, especially with hybrid — but hybrid addresses recall first (right doc in the pool); reranking is for ranking (right doc buried).',
+        'Domain-tuned embeddings help long-term but require labeled data and re-indexing.',
+      ],
+      next: [
+        'Always measure recall@k before and after retrieval changes.',
+        'For mixed query types, tune the hybrid weights — 0.5/0.5 is a default, some setups need 0.7 lexical.',
+        'Watch latency: BM25 + vector is ~1.5× the cost of vector alone.',
+      ],
+      principle: 'Vector search is necessary but not sufficient. At scale, lexical signals matter.',
+    }
+  },
+  {
+    id: 'L4·02', symptom: 'A+G · combo', repro: 'reproducible',
+    text: 'Quality regressed (eval down 8 points) AND cost up 40%. Both started 4 days ago. <strong>No deploys.</strong> Token usage unchanged per call.',
+    console: [
+      ['—','info','deploy','no app deploys in 14 days'],
+      ['—','info','provider','no announced model changes'],
+      ['—','warn','latency','p95 LLM latency: 1.4s → 3.8s'],
+      ['—','info','metrics','tokens/call unchanged · calls/session up 1.4×'],
+    ],
+    options: ['capacity_check','pin_version','trace_diff','bisect_release','rate_limit_check'],
+    correct: 'capacity_check', partial: ['pin_version','trace_diff'],
+    explain: {
+      correct: '<strong>Latency up, quality down, cost up, no deploy.</strong> Classic signs of <strong>provider-side capacity throttling</strong> — an older model tier quietly dialed down or shifted to slower infra. Check provider status, changelogs, and whether retries are spiking from timeouts.',
+      partial_pin_version: 'Pinning a version snapshot locks behavior, but if the provider is throttling that version, pinning won\'t save you.',
+      partial_trace_diff: 'Diff confirms calls-per-session is up — but the latency signal is the key tell that this is upstream.',
+      wrong: 'Bisect won\'t find anything; nothing shipped. Rate-limit check is for your own quota, not provider-side capacity.',
+    },
+    deepDive: {
+      rootCause: 'Major LLM providers run multi-tenant infrastructure. When they need capacity for newer models or priority customers, older tiers can be quietly deprioritized — slower latency, more queuing, sometimes lower-throughput hardware. Behavior may also subtly shift on different inference stacks.',
+      why: [
+        'Check the provider\'s status page, changelogs, and announcements about deprecations or routing changes.',
+        'Look for correlated signals: latency variance up, timeout rate up, retry rate up. The full constellation points to capacity, not your bugs.',
+        'Mitigations: move to a tier with stronger SLAs, a different provider for that workload, a newer (better-resourced) model, or escalate with your account rep.',
+      ],
+      missed: [
+        'Pinning to a specific version might be on the same throttled tier — pinning doesn\'t get you better capacity.',
+        'Trace diffing confirms the call-count uptick (likely retries from timeouts) but doesn\'t identify root cause.',
+      ],
+      next: [
+        'Track provider-side metrics: time-to-first-token, full-response latency, timeout rate.',
+        'Maintain a list of fallback models and providers — switch with a config flip.',
+        'For latency-sensitive workloads, consider provisioned throughput / dedicated capacity.',
+      ],
+      principle: 'When latency, cost, and quality all regress with no deploy, the issue is almost certainly upstream of your code.',
+    }
+  },
+  {
+    id: 'L4·03', symptom: 'B · Truncated', repro: 'reproducible',
+    text: 'Agent produces good 200-word summaries but the final paragraph is consistently truncated. <code>max_tokens=4096</code>. Input is 5K tokens. Streaming is on. <strong>Frontend renders short answers fine, cuts long ones.</strong>',
+    console: [
+      ['—','info','llm','completion finish_reason=stop · full 600 tokens returned'],
+      ['—','info','streaming','SSE connection closed after 9.8s'],
+      ['—','warn','gateway','gateway timeout: 10s'],
+    ],
+    options: ['max_tokens','cache_check','system_prompt','context_compress','rate_limit_check'],
+    correct: 'cache_check', partial: ['system_prompt'],
+    explain: {
+      correct: 'This isn\'t a model-output truncation — the LLM returned a complete response (<code>finish_reason=stop</code>). The truncation is at the <strong>gateway/proxy layer</strong>: a 10s timeout cuts the SSE stream. Check infra timeouts, load-balancer settings, CDN buffering.',
+      partial_system_prompt: 'Asking for shorter answers works around it but doesn\'t fix the infra bug.',
+      wrong: 'max_tokens isn\'t the issue (you got the full completion). Context compression doesn\'t address downstream timeouts.',
+    },
+    deepDive: {
+      rootCause: 'Streaming responses go through a chain: model → backend → gateway/proxy → CDN → client. Each hop has timeouts. If any fires before the stream completes, the client sees truncation — but the model logs show a clean completion. The signal is the gap between "model says done" and "client received."',
+      why: [
+        'Audit every layer for timeouts: API gateway, load balancer, CDN, framework HTTP timeout, client-side. Long streams need long timeouts at every hop.',
+        'For SSE specifically, watch for keepalive issues and buffering — some proxies buffer SSE by default, breaking streaming.',
+        'Common culprits: AWS ALB idle timeout, Cloudflare edge timeout, framework-level 10–30s response handler timeouts.',
+      ],
+      missed: [
+        'Asking the model to be concise forces it to fit a budget that should be elsewhere.',
+        'max_tokens isn\'t the cap — the log shows <code>finish_reason=stop</code> after 600 tokens.',
+      ],
+      next: [
+        'Build observability across the full streaming path: time-to-first-token, time-to-last-token, total duration per hop.',
+        'Set timeouts generously for LLM endpoints — 60–120s for long-form streams.',
+        'Add an end-to-end "long stream" health check.',
+      ],
+      principle: 'Read the finish_reason. If the model says it finished and the client says it didn\'t, the bug is between them.',
+    }
+  },
+  {
+    id: 'L4·04', symptom: 'C · Wrong tool', repro: 'intermittent',
+    text: 'Agent has 47 tools. For some queries it picks the right one; for others a vaguely related one. <strong>Failure rate scales with tool count.</strong> Adding a new tool made an unrelated query start failing.',
+    console: [
+      ['—','info','tools','47 tool definitions in context'],
+      ['—','info','context','tool defs alone: 18K tokens'],
+      ['—','warn','pattern','recent tool addition correlates with new failure'],
+    ],
+    options: ['tool_consolidate','tool_descriptions','planner_split','few_shots','system_prompt'],
+    correct: 'planner_split', partial: ['tool_consolidate','tool_descriptions'],
+    explain: {
+      correct: '<strong>47 tools is past the model\'s effective selection ceiling.</strong> Use a <strong>two-stage planner</strong>: stage 1 picks a tool category (or retrieves the top-N relevant tools), stage 2 picks the specific tool with only those in context. Same problem as RAG: too many candidates, do hierarchical selection.',
+      partial_tool_consolidate: 'Reducing tool count helps if there\'s real overlap, but 47 specific tools may legitimately exist.',
+      partial_tool_descriptions: 'Better descriptions improve marginal cases but don\'t scale past ~20 tools.',
+      wrong: 'Few-shots can\'t cover all 47 combinations. System-prompt nagging doesn\'t fix a capacity issue.',
+    },
+    deepDive: {
+      rootCause: 'Models have an effective "attention budget" for tool selection. Past ~10–20 tools, accuracy degrades: descriptions blur, similar tools compete, and adding a new tool can interfere with selection for unrelated queries (catastrophic interference). 47 is well past the ceiling for most models.',
+      why: [
+        'The fix is hierarchical — treat tool selection like retrieval. Stage 1: given the query, retrieve the top 5–10 most relevant tools (by embedding similarity to descriptions, or a router model). Stage 2: present only those for selection.',
+        'Same insight that makes RAG work for documents — "RAG for tools" is the standard architecture for large tool catalogs.',
+        'Implementations: LangChain tool retrieval, MCP catalogs with semantic filtering, custom routing layers.',
+      ],
+      missed: [
+        'Tool consolidation works for genuinely overlapping tools — but 47 specific tools across a real product surface aren\'t necessarily redundant.',
+        'Better descriptions help marginally; the ceiling is structural.',
+      ],
+      next: [
+        'Measure tool-selection accuracy against tool count; plot the curve. The inflection point tells you when to add hierarchy.',
+        'For dynamic catalogs, make tool retrieval a first-class step in the agent loop.',
+        'Audit "added a new tool, broke an old one" failures — a strong signal you\'ve crossed the ceiling.',
+      ],
+      principle: 'When tool count exceeds the model\'s selection capacity, retrieve tools like you retrieve documents.',
+    }
+  },
+  {
+    id: 'L4·05', symptom: 'F · Refusal', repro: 'reproducible',
+    text: 'Agent refuses to summarize a customer\'s own data when they ask. "I can\'t share personal information." It\'s <strong>their own data</strong>. Authenticated session. Refusal started after a model upgrade 6 weeks ago — unnoticed because the eval set didn\'t cover this.',
+    console: [
+      ['—','info','auth','user authenticated · viewing own profile'],
+      ['—','info','model','upgraded from prev → latest 6 weeks ago'],
+      ['—','warn','eval','no test covered "user asks about own data"'],
+    ],
+    options: ['system_prompt','pin_version','eval_set','few_shots','swap_model'],
+    correct: 'system_prompt', partial: ['eval_set','few_shots'],
+    explain: {
+      correct: 'The new model is more cautious. <strong>Update the system prompt</strong> to make the authenticated-user context explicit: "The user is authenticated and asking about their own data. Personal info about them is safe to share with them."',
+      partial_eval_set: '<strong>Critical follow-up</strong>: build the eval set you should\'ve had. This regression went 6 weeks undetected.',
+      partial_few_shots: 'Examples of "user asking about themselves → share" trajectories help operationalize the policy.',
+      wrong: 'Reverting (pin_version) buys time but you\'ll regress again. Swapping models is overkill — fix the policy framing.',
+    },
+    deepDive: {
+      rootCause: 'Each model generation handles safety differently. A newer model may have stronger refusal training around "personal information" and won\'t infer the legitimate context (authenticated user asking about themselves) without being told. The model isn\'t wrong by its own lights — it\'s applying a sensible default absent context.',
+      why: [
+        'Authentication context belongs in the system prompt: "The user has been authenticated as [user_id]. They are asking about their own account/data. It is safe and appropriate to share their own information with them, including [fields]."',
+        'Be explicit about what\'s in scope — models err toward caution; clear in-scope statements give permission to be helpful.',
+        'For multi-user systems, include the contrast: "Never share information about <em>other</em> users."',
+      ],
+      missed: [
+        'Reverting the model delays the work — you\'ll have to update anyway when the old version sunsets.',
+        'Few-shots help operationalize the policy but the system prompt sets the foundation.',
+      ],
+      next: [
+        'The eval gap is bigger than the bug. Build evals for "user-asking-about-self," "user-asking-about-other," and edge cases.',
+        'Run the full eval suite before promoting model upgrades.',
+        'Document the safety posture for each model version — new versions often need updated prompts.',
+      ],
+      principle: 'Newer models are usually more conservative. Migrate the prompt, not just the model.',
+    }
+  },
+  {
+    id: 'L4·06', symptom: 'D · Bad arguments', repro: 'intermittent',
+    text: 'Agent calls <code>send_email(to=…, subject=…, body=…)</code>. Recipients and subjects are correct. <strong>Bodies sometimes contain draft thinking</strong>: "Here\'s a draft of the email I\'ll send…" appears in actual sent emails.',
+    console: [
+      ['—','info','tool_call','send_email(body="Here\'s a draft I\'ll send: Hi Alice, …")'],
+      ['—','warn','pattern','agent generates draft + final in one pass'],
+      ['—','info','system','no separation of reasoning vs. tool args'],
+    ],
+    options: ['planner_split','structured_output','system_prompt','few_shots','tool_schema'],
+    correct: 'planner_split', partial: ['system_prompt','few_shots'],
+    explain: {
+      correct: 'The model\'s <em>thinking</em> is leaking into the <em>tool argument</em>. Cleanest fix: <strong>separate reasoning from action</strong>. Plan/draft in one step (free-form text), commit in another (structured tool call with just the final body).',
+      partial_system_prompt: 'Telling the model "only put the final email in <code>body</code>" works sometimes, but reasoning leaks are a structural smell.',
+      partial_few_shots: 'Examples reinforce the boundary but don\'t enforce it.',
+      wrong: 'JSON mode formats the field but doesn\'t police what goes in it. Tool schema can\'t distinguish "draft talk" from "final body."',
+    },
+    deepDive: {
+      rootCause: 'When a model is asked to both reason and act in one generation, its reasoning bleeds into action arguments — it\'s writing a coherent stream of thought, and "here\'s the draft I\'ll send" feels like the natural continuation before the content. Worse when the system prompt encourages "thinking out loud."',
+      why: [
+        'Structurally separate reasoning from action: (1) reasoning models with built-in scratch channels (thinking blocks, hidden reasoning) — the model thinks freely, only the action executes; (2) explicit two-step prompts: "First draft the email. Then return only the final body in the <code>body</code> argument."',
+        'Pattern 1 is becoming standard in modern agent frameworks. Pattern 2 works with any model.',
+        'Deeper principle: tool arguments should be <em>committed values</em>, not <em>reasoning artifacts</em>.',
+      ],
+      missed: [
+        'System-prompt rules work in the majority of cases but fail under prompt drift, long contexts, unusual requests.',
+        'JSON mode enforces format — the leaked content is valid JSON; the issue is content, not structure.',
+      ],
+      next: [
+        'For destructive or external-facing actions (email, payments, notifications), always use a structurally separated commit step.',
+        'Add an output filter: a deterministic check that body fields don\'t contain "draft," "here\'s what I\'ll send," etc.',
+        'Adopt reasoning-enabled models where available.',
+      ],
+      principle: 'Reasoning and action are different artifacts. Don\'t let one leak into the other.',
+    }
+  },
+  {
+    id: 'L4·07', symptom: 'E+G · combo', repro: 'reproducible',
+    text: 'Agent loops on <em>some</em> sessions (hits max_steps), works on others. Cost is up. <strong>Loop sessions share a pattern: they all involve the new <code>research_competitors</code> tool you added.</strong>',
+    console: [
+      ['—','info','pattern','looping sessions: 100% use research_competitors'],
+      ['—','info','tool','research_competitors returns 50-row table'],
+      ['—','warn','agent','agent re-calls with refined args each time'],
+      ['—','info','system','no schema on tool output structure'],
+    ],
+    options: ['tool_schema','stop_signal','planner_split','tool_descriptions','max_steps'],
+    correct: 'tool_schema', partial: ['tool_descriptions','stop_signal'],
+    explain: {
+      correct: 'The tool returns a 50-row table with no schema — the model can\'t tell what\'s "complete" data vs. needing another query. <strong>Define a clear output contract</strong>: structured response with explicit "is_complete" or pagination signals.',
+      partial_tool_descriptions: 'Better description ("returns up to 50 results; this is the full set") helps the model know not to refine.',
+      partial_stop_signal: 'Adding "you may stop after one call" works but ignores the deeper issue: opaque tool output.',
+      wrong: 'planner_split is structural overkill. max_steps caps the bleed but doesn\'t fix the cause.',
+    },
+    deepDive: {
+      rootCause: 'Models reason about tool outputs partly from their structure. A bare 50-row table doesn\'t signal "this is all the data" — the model wonders if a different query would return more, better, or different data. Without a contract, it fills the gap with caution, retrying with variations.',
+      why: [
+        'Output schemas should answer: how much data is there? Is this all of it? How do I get more? Pattern: <code>{ results: [...], total: N, returned: K, has_more: bool, next_cursor: ... }</code>.',
+        'Tool descriptions should reinforce: "Returns up to 50 results in a single call. The full set is in <code>results</code>. If <code>has_more</code> is true, call again with <code>cursor</code>."',
+        'For tools where only one query makes sense, say so: "There is no benefit to calling this tool more than once per session."',
+      ],
+      missed: [
+        'Better tool description is in the right family — it\'s how you encode the contract for the model.',
+        'A stop signal works for one session but doesn\'t generalize — the next opaque tool causes the same issue.',
+      ],
+      next: [
+        'Audit all tools that return collections — do they tell the model when results are complete?',
+        'Treat tool I/O as a first-class API design problem.',
+        'When introducing a new tool, run a "does the agent know when to stop calling it" check before shipping.',
+      ],
+      principle: 'A tool without an output schema is a tool the agent can\'t trust. Sign the contract.',
+    }
+  },
+  {
+    id: 'L4·08', symptom: 'A · Hallucinated', repro: 'reproducible',
+    text: 'Agent answers questions about a numeric field <strong>off-by-one</strong>: cites $1,499 when the doc says $1,500. Consistent. Many fields, many docs. <strong>Embedding model was updated 3 weeks ago to a "more efficient" version.</strong>',
+    console: [
+      ['—','info','embedding','upgraded: ada-002 → new-efficient-v3'],
+      ['—','info','retrieval','right docs retrieved · context contains correct numbers'],
+      ['—','warn','tokenizer','new model uses different tokenization'],
+      ['—','info','numbers','numeric tokens consistently misread'],
+    ],
+    options: ['embedding_model','reindex','swap_model','lower_temp','prompt_guard'],
+    correct: 'swap_model', partial: ['prompt_guard','embedding_model'],
+    explain: {
+      correct: 'Retrieval is fine — the <strong>generation model</strong> is misreading numbers. A known failure mode where aggressive tokenization splits numeric tokens awkwardly. <strong>Swap to a model with better numeric handling</strong>, or post-process numerics through a tool. The trace says context is right; output is wrong.',
+      partial_prompt_guard: '"Read numbers exactly as written, do not round" helps marginally but doesn\'t fix tokenizer-level issues.',
+      partial_embedding_model: 'Reverting the embedding model won\'t fix the generation-side problem — the trace says retrieval is fine.',
+      wrong: 'Reindexing won\'t help if generation is the issue. Lower temp doesn\'t fix systematic numeric drift.',
+    },
+    deepDive: {
+      rootCause: 'LLMs tokenize numbers in non-obvious ways. Some split "1500" into ["1","500"] or ["15","00"]; others use specialized number tokens. When a tokenizer fragments numbers inconsistently, generation can produce off-by-one errors, especially for less common numbers. The embedding-model change is a red herring — it affects retrieval, but the trace shows retrieval is fine.',
+      why: [
+        'Some models handle numerics better. Models trained with digit-level tokenization tend to be more reliable; greedy BPE on numbers can drift.',
+        'A robust mitigation regardless of model: route numeric reasoning through a tool. The model identifies values from context, a calculator/lookup tool returns the canonical numbers. The model never has to "rewrite" a number.',
+        'For read-and-quote tasks, force quoting: "Quote the exact numeric value from the source, in quotes, before paraphrasing."',
+      ],
+      missed: [
+        'The embedding-model change correlates in time but the trace shows retrieval working — the bug is at the generation layer.',
+        'Lower temperature makes the off-by-one consistent, not correct.',
+      ],
+      next: [
+        'Add a "numeric fidelity" eval: docs with specific numbers, questions whose answers are those numbers, check exact match.',
+        'For workflows where exact numerics matter, prefer tool-based extraction over LLM generation.',
+        'When evaluating new models for numeric workloads, run a digit-level reproduction test.',
+      ],
+      principle: 'LLMs are not reliable at exact reproduction of numbers. If exactness matters, route through a tool.',
+    }
+  },
+]);
+
+/* ───────────────── LEVEL 5 · DISTINGUISHED (chained fixes) ───────────────── */
+LEVELS.push([
+  {
+    id: 'L5·01', symptom: 'F · Refusal (incident)', repro: 'chain · 3 steps', isChain: true,
+    text: '<strong>Prod incident, ongoing.</strong> Agent started refusing core safe requests an hour ago. Users are complaining. You didn\'t deploy. The trace points to a possible silent model update. What\'s your sequence of moves? <em>Pick 3 dials in order.</em>',
+    console: [
+      ['09:14:02','err','eval','60% of prod requests refused in last hour'],
+      ['09:14:02','info','deploy','no app deploy in 8 days'],
+      ['09:14:02','info','model','using "claude-sonnet-latest" alias'],
+      ['09:14:03','warn','incident','users churning · revenue impact'],
+    ],
+    options: ['feature_flag','pin_version','eval_set','bisect_release','system_prompt','rollback','capacity_check'],
+    chainCorrect: ['feature_flag','pin_version','eval_set'],
+    chainPartialOrder: [['pin_version','feature_flag','eval_set']],
+    stepExplain: {
+      feature_flag: '<strong>Step 1 — stop the bleed.</strong> Flag the affected feature off, or route to a known-good fallback. Users stop hurting <em>now</em>, not after you finish debugging.',
+      pin_version: '<strong>Step 2 — fix the cause.</strong> With users protected, pin to a specific version snapshot to revert behavior. Re-enable the feature.',
+      eval_set: '<strong>Step 3 — prevent recurrence.</strong> Build the eval set that would have caught this. Refusal-rate tests should run on every model-version change.',
+    },
+    explain: {
+      correct: '<strong>Stop the bleed → fix the cause → prevent recurrence.</strong> The canonical incident-response order. Feature flags protect users while you debug; pinning restores function; an eval set prevents regression.',
+      partial: 'Pinning first eventually works but leaves users broken for the deploy window. Always stop the bleed first.',
+      wrong: 'Skipping the feature flag means users keep hitting the issue while you debug. Skipping the eval set means you regress again next provider update.',
+    },
+    deepDive: {
+      rootCause: 'When a production incident has a known mitigation (route around, disable, flag off), users should be protected first. Debugging takes time; users don\'t care about your root-cause analysis if their flow is broken right now.',
+      why: [
+        '<strong>Step 1 — feature_flag / canary:</strong> any path that takes users out of the failing flow — disable the feature, route to a known-good model, fall back to a non-AI path. Time-to-mitigation is the key incident metric.',
+        '<strong>Step 2 — pin_version:</strong> with users protected, fix the root cause. The console clearly indicates a silent provider update via the <code>-latest</code> alias.',
+        '<strong>Step 3 — eval_set:</strong> after the fire is out, write the test that would have caught it — a refusal-rate test run on every model-version change in CI.',
+      ],
+      missed: [
+        'Pinning before mitigating leaves users in the failure state during the deploy window. Even 5 minutes is 5 minutes of bad UX in a fast incident.',
+        'Skipping the eval-set step guarantees this recurs next provider update. Incident response without prevention is just firefighting.',
+        'Rolling back doesn\'t apply — there was no deploy of yours to roll back. The change was upstream.',
+      ],
+      next: [
+        'Codify incident response in a runbook: stop the bleed → diagnose → fix → prevent.',
+        'For AI features, identify mitigation paths in advance — which features have a fallback, which can be disabled cleanly.',
+        'Treat eval-set additions as part of every incident\'s definition of done.',
+      ],
+      principle: '<strong>Stop the bleed, then fix the cause, then prevent recurrence.</strong> Always in that order. "Just fix it" before mitigating is the most expensive mistake in incident response.',
+    }
+  },
+  {
+    id: 'L5·02', symptom: 'A · Hallucinated (corpus growth)', repro: 'chain · 3 steps', isChain: true,
+    text: 'New product launch put 50K docs into your corpus. Hallucinations are spiking. Retrieval recall dropped 94% → 68%. You need a durable fix. <em>Pick 3 dials in order — the right sequence builds toward a robust retrieval pipeline.</em>',
+    console: [
+      ['—','info','corpus','2K docs → 52K docs in 3 weeks'],
+      ['—','warn','recall','recall@5: 94% → 68%'],
+      ['—','warn','eval','factuality dropped 11 points'],
+      ['—','info','index','flat HNSW · ef_search=40'],
+    ],
+    options: ['hybrid_search','reranker','metadata_filter','reindex','eval_set','prompt_guard','embedding_model'],
+    chainCorrect: ['metadata_filter','hybrid_search','reranker'],
+    chainPartialOrder: [['hybrid_search','reranker','metadata_filter']],
+    stepExplain: {
+      metadata_filter: '<strong>Step 1 — cheapest, highest leverage.</strong> Filter by tenant/product/date metadata before search. Often shrinks the candidate space 10×+ for free.',
+      hybrid_search: '<strong>Step 2 — address the recall gap.</strong> Add BM25 alongside vector search. Lexical signals (product names, IDs) recover the recall lost at scale.',
+      reranker: '<strong>Step 3 — precision over the wider pool.</strong> With hybrid pulling more candidates, a cross-encoder reranker promotes the truly relevant docs to the top.',
+    },
+    explain: {
+      correct: '<strong>Filter → Retrieve → Rank.</strong> Build retrieval from cheap to expensive: pre-filtering shrinks the space, hybrid recovers recall, reranking restores precision. Each stage builds on the last.',
+      partial: 'Hybrid first works but you might over-engineer if metadata filtering alone resolves most of the regression. Cheap fixes first.',
+      wrong: 'Re-embedding is heavy and slow. Eval set is critical but a guardrail, not a fix. Prompt guards don\'t recover lost recall.',
+    },
+    deepDive: {
+      rootCause: 'Retrieval pipelines are layered systems. Each layer has different costs and addresses different failure modes. At small scale, a single layer suffices. At larger scale, each layer pulls its weight. Diagnosing which to add — and in what order — is the senior-level skill.',
+      why: [
+        '<strong>Step 1 — metadata_filter:</strong> if 80% of queries can be scoped to a product or tenant, you need 5K-doc retrieval, not 50K. Pre-filtering is essentially free (a SQL clause) and the impact is huge.',
+        '<strong>Step 2 — hybrid_search:</strong> once the candidate space is right-sized, recover recall lost to vector-only at scale. BM25 catches lexical signals dense embeddings smear.',
+        '<strong>Step 3 — reranker:</strong> hybrid pulls a wider pool (k=30–50). A reranker ensures the top-3 are actually best. Most expensive step, hence last.',
+      ],
+      missed: [
+        'Skipping pre-filtering makes hybrid + reranker work harder than necessary — you pay compute for problems metadata filtering eliminates.',
+        'Eval set is critical infrastructure but measures recall, doesn\'t fix it. Do it in parallel.',
+        'Swapping embedding model is a 10× larger investment than the layered fix.',
+      ],
+      next: [
+        'Measure recall@k at each layer — after filter, after hybrid, after reranker.',
+        'Set up retrieval CI: every pipeline change runs against a held-out eval set.',
+        'For multi-tenant systems, metadata filtering is non-negotiable — ACLs should be a pre-filter.',
+      ],
+      principle: 'Build retrieval from cheap to expensive. Pre-filter first, retrieve, then rerank. Each layer addresses a different failure mode.',
+    }
+  },
+  {
+    id: 'L5·03', symptom: 'E + D + G · combo', repro: 'chain · 3 steps', isChain: true,
+    text: 'Agent loops on multi-step tasks. Tool args sometimes contain reasoning leakage ("Here\'s what I\'ll send: …"). Cost is 2× a month ago. <strong>Symptoms feel related but the root causes might differ.</strong> <em>Pick 3 dials in order.</em>',
+    console: [
+      ['—','info','pattern','looping on complex tasks · linear cost growth'],
+      ['—','warn','tool','tool args contain "draft" prefixes intermittently'],
+      ['—','info','metrics','avg llm_calls per session up 2.4×'],
+      ['—','info','arch','single model handles plan, act, evaluate'],
+    ],
+    options: ['planner_split','trace_diff','tool_schema','stop_signal','system_prompt','context_compress','eval_set'],
+    chainCorrect: ['trace_diff','planner_split','eval_set'],
+    chainPartialOrder: [['planner_split','trace_diff','eval_set']],
+    stepExplain: {
+      trace_diff: '<strong>Step 1 — diagnose before treating.</strong> The three symptoms might share one root cause or be unrelated. A trace diff against a clean session shows you which.',
+      planner_split: '<strong>Step 2 — structural fix.</strong> Trace likely confirms one model plan-act-evaluating in a loop. Split planning from execution: cures the loop, the reasoning leak, and the cost in one change.',
+      eval_set: '<strong>Step 3 — protect the architecture.</strong> Build evals for trajectory length, reasoning-leak detection, and call count.',
+    },
+    explain: {
+      correct: '<strong>Diagnose → Restructure → Protect.</strong> All three symptoms share one cause: a model trying to do too much in one role. Trace diff confirms; planner split treats; eval set prevents regression.',
+      partial: 'Splitting first works because the diagnosis is fairly clear — but you should still confirm with a trace diff to avoid over-engineering or missing a different bug.',
+      wrong: 'Tool schemas, stop signals, and prompts each treat one symptom in isolation, missing that they share a root cause.',
+    },
+    deepDive: {
+      rootCause: 'Sometimes multiple symptoms have one cause; sometimes they have separate causes that surfaced together. You can\'t tell without the trace. The temptation is to fix each symptom independently — but if they share a cause, you fix the same bug three times.',
+      why: [
+        '<strong>Step 1 — trace_diff:</strong> compare a healthy session to a failing one. One model alternately planning, calling tools, evaluating, re-planning = the shared cause. Three independent issues = three different fixes.',
+        '<strong>Step 2 — planner_split:</strong> trace confirms a single model in plan-act-evaluate mode. Separating roles cures (a) infinite refinement, (b) reasoning leakage (the executor has no reasoning to leak), (c) call-count explosion.',
+        '<strong>Step 3 — eval_set:</strong> add tests for trajectory length, reasoning-leak detection, per-session call count.',
+      ],
+      missed: [
+        'Treating each symptom independently is whack-a-mole — you touch the agent 3 times instead of once.',
+        'Restructuring before diagnosing risks fixing a problem you don\'t have. Confirm the hypothesis with data.',
+      ],
+      next: [
+        'When symptoms cluster with no obvious shared trigger, suspect a structural cause. Trace first.',
+        'Document your agent\'s architecture — which models play which roles, what state passes between them.',
+        'For complex multi-step tasks, plan-then-execute is the default; single-model agents are for simple flows.',
+      ],
+      principle: 'When symptoms cluster, suspect a shared cause. Diagnose with a trace before restructuring.',
+    }
+  },
+  {
+    id: 'L5·04', symptom: 'C + D · combo', repro: 'chain · 2 steps', isChain: true,
+    text: 'Adding new tools makes existing flows regress. Argument-passing also gets sloppier as you add tools. The catalog is now 34 tools and growing. <em>Pick 2 dials in order.</em>',
+    console: [
+      ['—','info','tools','34 tools (was 12 six months ago)'],
+      ['—','warn','pattern','each new tool addition causes 1–2 unrelated regressions'],
+      ['—','warn','pattern','argument-filling accuracy declining as catalog grows'],
+      ['—','info','context','tool defs alone: 14K tokens'],
+    ],
+    options: ['planner_split','tool_consolidate','tool_descriptions','few_shots','eval_set','tool_split'],
+    chainCorrect: ['tool_consolidate','planner_split'],
+    chainPartialOrder: [['planner_split','tool_consolidate']],
+    stepExplain: {
+      tool_consolidate: '<strong>Step 1 — audit for real overlap.</strong> Of 34 tools, some are consolidate-able variants. Cutting the catalog 10–15% costs nothing in functionality and reduces interference immediately.',
+      planner_split: '<strong>Step 2 — hierarchical selection.</strong> Even after consolidation, 25+ tools is past most models\' selection ceiling. Add a router that retrieves the top relevant tools per query.',
+    },
+    explain: {
+      correct: '<strong>Consolidate the easy wins first, then add hierarchy.</strong> Tool-catalog growth is permanent pressure; you need both a one-time cleanup and an architectural pattern that scales.',
+      partial: 'Adding the planner first works but leaves redundant tools clogging the retrieval step. Consolidate first to make the planner\'s job easier.',
+      wrong: 'Tool descriptions and few-shots don\'t scale past the selection ceiling. Eval sets measure but don\'t fix.',
+    },
+    deepDive: {
+      rootCause: 'Tool catalogs grow with feature requests. Without active curation they accumulate redundancy and complexity. Past ~15–20 tools, model selection accuracy declines, and new tools interfere with selection for unrelated queries.',
+      why: [
+        '<strong>Step 1 — tool_consolidate:</strong> walk the catalog for near-duplicates, overlapping scopes, and tools that should be one tool with a typed parameter. Realistic: 34 → 25. Improves selection accuracy and cuts token overhead.',
+        '<strong>Step 2 — planner_split:</strong> for the consolidated catalog (still 25, past the ceiling), add hierarchical tool selection — embed descriptions, retrieve the top 5–8 relevant per query. Same idea as RAG, for tools.',
+      ],
+      missed: [
+        'Planner-first is fine in principle but you\'ll be retrieving redundant tools through the planner — extra cost and a small accuracy hit.',
+        'Tool description tweaks help marginally but don\'t scale past 20 tools.',
+      ],
+      next: [
+        'Add tool-catalog hygiene to your engineering rituals — quarterly review for unused/overlapping tools.',
+        'Instrument the router — tools retrieved together are consolidation candidates.',
+        'When proposing a new tool, ask: new capability, or a variant that belongs as a parameter?',
+      ],
+      principle: 'Tool catalogs are products. Curate them or watch your agent\'s quality decline.',
+    }
+  },
+  {
+    id: 'L5·05', symptom: 'A · Hallucinated (multi-cause)', repro: 'chain · 3 steps', isChain: true,
+    text: 'Hallucination rate is unacceptable. Investigation: <strong>30%</strong> of failures are out-of-corpus questions, <strong>40%</strong> are retrieval misses (right doc not in top-k), <strong>30%</strong> are intermittent and pass on retry. <em>Pick 3 dials in order — the most impactful sequence.</em>',
+    console: [
+      ['—','warn','eval','hallucination rate: 18% (target: <5%)'],
+      ['—','info','breakdown','40% retrieval miss · 30% out-of-corpus · 30% intermittent'],
+      ['—','info','config','temperature=0.4 · top_k=3 · no reranker'],
+      ['—','info','eval-set','200 labeled queries · grounding tags'],
+    ],
+    options: ['reranker','prompt_guard','lower_temp','retrieval_k','hybrid_search','eval_set','metadata_filter'],
+    chainCorrect: ['reranker','prompt_guard','lower_temp'],
+    chainPartialOrder: [['prompt_guard','reranker','lower_temp'],['reranker','lower_temp','prompt_guard']],
+    stepExplain: {
+      reranker: '<strong>Step 1 — biggest bucket (40%).</strong> Retrieval misses dominate. A reranker over a wider candidate pool addresses this — and it lifts every downstream metric.',
+      prompt_guard: '<strong>Step 2 — out-of-corpus (30%).</strong> No retrieval fix touches these — the answer isn\'t in the corpus. Force the model to refuse or cite.',
+      lower_temp: '<strong>Step 3 — intermittent (30%).</strong> By now the deterministic causes are fixed. Variance is what\'s left. Drop temperature.',
+    },
+    explain: {
+      correct: '<strong>Biggest impact first.</strong> Order by failure share: retrieval (40%) > out-of-corpus (30%) > sampling (resolves cleanly once others are fixed). Each step addresses an independent failure mode.',
+      partial: 'Starting with prompt_guard catches the out-of-corpus fraction but leaves the bigger retrieval problem. The order matters: bigger lever first.',
+      wrong: 'Hybrid search or metadata filtering might help retrieval too, but with no scale or tenant context given, reranking is the most direct fix. The eval set already exists per the trace.',
+    },
+    deepDive: {
+      rootCause: 'When you have a mixed failure portfolio, debug like a portfolio manager: address the largest bucket first, then the next, then the residual. Treating all causes as equal wastes effort on small wins; treating them without ordering leaves the big buckets untouched.',
+      why: [
+        '<strong>Step 1 — reranker:</strong> 40% of failures are "right doc not in top-k." A reranker over k=30 candidates lifts top-3 precision substantially. Expected: hallucination rate drops 5–6 points.',
+        '<strong>Step 2 — prompt_guard:</strong> 30% are out-of-corpus. No retrieval fix helps; the model needs to refuse. A grounding prompt converts these from confident-wrong to honest-IDK. Expected: another 4–5 points.',
+        '<strong>Step 3 — lower_temp:</strong> with deterministic causes addressed, intermittent failures are mostly sampling. Drop temp toward 0 for QA. Expected: 2–3 points off the residual.',
+      ],
+      missed: [
+        'prompt_guard first catches the 30% out-of-corpus bucket but leaves the bigger 40% retrieval bucket — your top-line metric improves less.',
+        'lower_temp first masks the variance but the retrieval and out-of-corpus issues still emit failures, just more consistently.',
+      ],
+      next: [
+        'Stratified evaluation is the key tool: tag every eval failure with its bucket.',
+        'After fixing the major buckets, re-stratify — new patterns emerge once the big causes are addressed.',
+        'For mature systems, track hallucination as a multi-cause metric and reduce one bucket at a time.',
+      ],
+      principle: 'Debug a portfolio of failures by impact, not alphabetical order. The biggest lever first, always.',
+    }
+  },
+  {
+    id: 'L5·06', symptom: 'B · Truncated + cost', repro: 'chain · 2 steps', isChain: true,
+    text: 'Long-running conversations hit context limits. Some sessions cost 5× others. Output gets truncated on long sessions even with generous max_tokens. <em>Pick 2 dials in order.</em>',
+    console: [
+      ['—','info','p95','avg session tokens: 90K · p95: 180K · window: 200K'],
+      ['—','warn','cost','session cost variance 5×'],
+      ['—','err','output','truncation on long sessions despite max_tokens=4K'],
+      ['—','info','tools','verbose tool outputs not summarized'],
+    ],
+    options: ['context_compress','tool_schema','max_tokens','swap_model','chunking','system_prompt'],
+    chainCorrect: ['tool_schema','context_compress'],
+    chainPartialOrder: [['context_compress','tool_schema']],
+    stepExplain: {
+      tool_schema: '<strong>Step 1 — cap at the source.</strong> Tool outputs are the largest contributors to context growth. Add output limits/summarization to each tool. Cheap, structural, addresses the cause.',
+      context_compress: '<strong>Step 2 — manage what remains.</strong> Even with bounded tool outputs, long sessions accumulate state. Summarize old turns to keep context lean for late-session generation.',
+    },
+    explain: {
+      correct: '<strong>Bound the inputs, then manage the accumulation.</strong> Tool output sprawl is the primary cause; conversational state is secondary. Fix the cause first, manage the residual second.',
+      partial: 'Compressing history first works but you\'ll need to compress more aggressively because tool outputs are still bloating. Capping at the source is cleaner.',
+      wrong: 'Larger context windows or swapping models is a sledgehammer. Chunking is for input docs, not conversational state.',
+    },
+    deepDive: {
+      rootCause: 'Context bloat in agent systems usually has two layers: (1) tool outputs larger than they need to be, (2) accumulated conversational state. Fixing only the second is treating the symptom; fixing only the first leaves long conversations vulnerable. You typically need both, in that order.',
+      why: [
+        '<strong>Step 1 — tool_schema:</strong> walk your tools and bound output sizes — cap raw payloads (e.g., 4K chars), provide summarization modes, add pagination. Structural; prevents the worst-case session from existing.',
+        '<strong>Step 2 — context_compress:</strong> with tool outputs sane, conversations still accumulate. Summarize older turns when context exceeds a threshold (~60% of window). Keep enough state for the current task.',
+      ],
+      missed: [
+        'Compression alone works but has to be more aggressive because tool outputs are still huge — you pay tokens to compress junk that should never have entered context.',
+        'A larger window delays the cost and doesn\'t address cost variance — tool-heavy sessions still cost 5× quieter ones.',
+      ],
+      next: [
+        'Audit tool output sizes regularly — sort tools by p95 output tokens, the long tail is your target.',
+        'Add per-session context-budget metrics; flag sessions trending toward the limit.',
+        'For long-running agents, conversational compression should be a first-class component.',
+      ],
+      principle: 'Manage context like a budget: cap the inputs, manage the accumulation, monitor the trajectory.',
+    }
+  },
+]);
+/* ═════════════════════════════════════════════
+   GAME LOGIC
+   ═════════════════════════════════════════════ */
+
+const PROGRESS_KEY = 'agent_debug_progress_v3';
+
+async function loadProgress() {
+  try {
+    const r = await window.storage.get(PROGRESS_KEY);
+    if (r) return JSON.parse(r.value);
+  } catch (e) {}
+  return { unlockedLevel: 0, levelGrades: [null,null,null,null,null] };
+}
+async function saveProgress(p) {
+  try { await window.storage.set(PROGRESS_KEY, JSON.stringify(p)); }
+  catch (e) { console.error('Save failed', e); }
+}
+
+let progress = { unlockedLevel: 0, levelGrades: [null,null,null,null,null] };
+
+let state = {
+  level: 0, order: [], idx: 0, score: 0,
+  streak: 0, bestStreak: 0, correct: 0, partial: 0, wrong: 0,
+  answered: false, chainState: null,
+};
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function calculateGrade(correct, partial, wrong, total) {
+  const score = (correct + partial * 0.4) / total;
+  const noWrong = wrong === 0;
+  if (score >= 0.9 && noWrong) return 'S';
+  if (score >= 0.85) return 'A';
+  if (score >= 0.7) return 'B';
+  if (score >= 0.55) return 'C';
+  if (score >= 0.4) return 'D';
+  return 'F';
+}
+function gradeMeetsPass(g) { return ['S','A','B'].includes(g); }
+const GRADE_RANK = { F:0, D:1, C:2, B:3, A:4, S:5 };
+
+/* ───────── LEVEL SELECT ───────── */
+function renderLevelSelect() {
+  const list = document.getElementById('levels-list');
+  list.innerHTML = LEVELS.map((level, i) => {
+    const meta = LEVEL_META[i];
+    const unlocked = i <= progress.unlockedLevel;
+    const grade = progress.levelGrades[i];
+    const cleared = grade && gradeMeetsPass(grade);
+    const l5 = i === 4 ? 'l5' : '';
+    return `<button class="level-card ${unlocked ? 'unlocked' : 'locked'} ${cleared ? 'cleared' : ''} ${l5}"
+        data-level="${i}" ${unlocked ? '' : 'disabled'}>
+      ${!unlocked ? '<span class="locked-tag">⌬ LOCKED</span>' : ''}
+      <div class="level-num">LEVEL ${meta.num}</div>
+      <div class="level-name">${meta.name}</div>
+      <div class="level-desc">${meta.desc}</div>
+      <div class="level-meta">
+        <span class="level-count">${level.length} scenarios</span>
+        <span class="level-grade ${grade ? '' : 'empty'}">${grade || '—'}</span>
+      </div>
+    </button>`;
+  }).join('');
+  list.querySelectorAll('.level-card').forEach(card => {
+    card.addEventListener('click', () => {
+      if (!card.disabled) startLevel(parseInt(card.dataset.level));
+    });
+  });
+}
+
+function showLevelSelect() {
+  document.getElementById('level-select').classList.add('show');
+  document.getElementById('stage').classList.remove('show');
+  document.getElementById('hud-game').style.display = 'none';
+  document.getElementById('endscreen').classList.remove('show');
+  document.getElementById('feedback').classList.remove('show');
+  document.getElementById('scenario').style.display = '';
+  document.querySelector('.dials-wrap').style.display = '';
+  renderLevelSelect();
+}
+
+function startLevel(levelIdx) {
+  state = {
+    level: levelIdx,
+    order: shuffle(LEVELS[levelIdx].map((_, i) => i)),
+    idx: 0, score: 0, streak: 0, bestStreak: 0,
+    correct: 0, partial: 0, wrong: 0, answered: false, chainState: null,
+  };
+  document.getElementById('level-select').classList.remove('show');
+  document.getElementById('stage').classList.add('show');
+  document.getElementById('hud-game').style.display = 'flex';
+  document.getElementById('endscreen').classList.remove('show');
+  document.getElementById('feedback').classList.remove('show');
+  document.getElementById('scenario').style.display = '';
+  document.querySelector('.dials-wrap').style.display = '';
+  renderScenario();
+  updateHUD();
+}
+
+function currentScenario() {
+  return LEVELS[state.level][state.order[state.idx]];
+}
+
+/* ───────── SCENARIO RENDER ───────── */
+function renderScenario() {
+  const s = currentScenario();
+  state.answered = false;
+  state.chainState = s.isChain ? { step: 0, picks: [], wrongPicks: [] } : null;
+
+  document.getElementById('feedback').classList.remove('show','correct','wrong','partial','step');
+  document.getElementById('deep-dive').classList.remove('open');
+
+  document.getElementById('sc-id').textContent = `SCENARIO ${s.id}`;
+  document.getElementById('sc-symptom').textContent = s.symptom.toUpperCase();
+  const reproEl = document.getElementById('sc-repro');
+  reproEl.textContent = s.repro.toUpperCase();
+  let pillClass = 'flake';
+  if (s.repro === 'reproducible') pillClass = 'repro';
+  else if (s.repro.startsWith('chain')) pillClass = 'chain';
+  reproEl.className = 'pill ' + pillClass;
+
+  document.getElementById('sc-text').innerHTML = s.text;
+
+  document.getElementById('sc-console').innerHTML = s.console.map(([ts, lvl, src, msg]) =>
+    `<div><span class="ts">[${ts}]</span> <span class="lvl-${lvl}">${lvl.toUpperCase().padEnd(4)}</span> <span class="arrow">${src}</span> <span>${msg}</span></div>`
+  ).join('');
+
+  const chainEl = document.getElementById('chain-progress');
+  if (s.isChain) {
+    chainEl.classList.add('show');
+    renderChainProgress(s);
+    document.getElementById('dials-header').textContent = `select step 1 of ${s.chainCorrect.length}`;
+  } else {
+    chainEl.classList.remove('show');
+    document.getElementById('dials-header').textContent = 'select the dial to turn';
+  }
+
+  renderDials(s);
+}
+
+function renderChainProgress(s) {
+  const el = document.getElementById('chain-steps');
+  const total = s.chainCorrect.length;
+  const picks = state.chainState.picks;
+  let html = '';
+  for (let i = 0; i < total; i++) {
+    const cls = i < picks.length ? 'chain-step filled'
+      : (i === picks.length ? 'chain-step current' : 'chain-step');
+    const label = i < picks.length ? DIALS[picks[i]].name : `step ${i + 1}`;
+    html += `<span class="${cls}">${label}</span>`;
+    if (i < total - 1) html += `<span class="chain-arrow">→</span>`;
+  }
+  el.innerHTML = html;
+}
+
+function renderDials(s) {
+  const dialsEl = document.getElementById('dials');
+  let opts = s.options;
+  if (s.isChain && state.chainState.picks.length > 0) {
+    opts = s.options.filter(o => !state.chainState.picks.includes(o));
+  }
+  const shuffled = shuffle(opts);
+  dialsEl.innerHTML = shuffled.map((dialId, i) => {
+    const d = DIALS[dialId];
+    return `<button class="dial" data-dial="${dialId}" data-key="${i+1}">
+      <div class="dial-key">[${i+1}]</div>
+      <div class="dial-name">${d.name}</div>
+      <div class="dial-desc">${d.desc}</div>
+    </button>`;
+  }).join('');
+  dialsEl.querySelectorAll('.dial').forEach(btn => {
+    btn.addEventListener('click', () => handleAnswer(btn.dataset.dial));
+  });
+}
+
+/* ───────── ANSWER HANDLING ───────── */
+function handleAnswer(dialId) {
+  if (state.answered) return;
+  const s = currentScenario();
+  if (s.isChain) handleChainAnswer(dialId, s);
+  else handleSimpleAnswer(dialId, s);
+}
+
+function buildDeepDive(dd) {
+  if (!dd) return '';
+  let html = '';
+  if (dd.rootCause) html += `<h4>Root Cause</h4><p>${dd.rootCause}</p>`;
+  if (dd.why && dd.why.length) {
+    html += `<h4>Why This Works</h4><ul>${dd.why.map(x => `<li>${x}</li>`).join('')}</ul>`;
+  }
+  if (dd.missed && dd.missed.length) {
+    html += `<h4>Why Not The Others</h4><ul>${dd.missed.map(x => `<li>${x}</li>`).join('')}</ul>`;
+  }
+  if (dd.whyOrder && dd.whyOrder.length) {
+    html += `<h4>Why This Order</h4><ul>${dd.whyOrder.map(x => `<li>${x}</li>`).join('')}</ul>`;
+  }
+  if (dd.next && dd.next.length) {
+    html += `<h4>Next Steps</h4><ul>${dd.next.map(x => `<li>${x}</li>`).join('')}</ul>`;
+  }
+  if (dd.principle) html += `<div class="principle-box">${dd.principle}</div>`;
+  return html;
+}
+
+function showFeedback(cls, verdict, sub, body, deepDive, hideDeep) {
+  const fb = document.getElementById('feedback');
+  fb.classList.add('show', cls);
+  document.getElementById('fb-verdict').textContent = verdict;
+  document.getElementById('fb-sub').textContent = sub;
+  document.getElementById('fb-body').innerHTML = body;
+
+  const dd = document.getElementById('deep-dive');
+  if (hideDeep || !deepDive) {
+    dd.classList.add('hidden');
+  } else {
+    dd.classList.remove('hidden', 'open');
+    document.getElementById('deep-dive-inner').innerHTML = buildDeepDive(deepDive);
+  }
+}
+
+function handleSimpleAnswer(dialId, s) {
+  state.answered = true;
+  let verdict, points, fbClass, fbVerdict, fbSub, fbBody;
+
+  if (dialId === s.correct) {
+    verdict = 'correct';
+    points = 10 + state.streak * 2;
+    state.correct++; state.streak++;
+    state.bestStreak = Math.max(state.bestStreak, state.streak);
+    fbClass = 'correct';
+    fbVerdict = `+${points} · DIAL TUNED`;
+    fbSub = state.streak > 1 ? `// streak x${state.streak} bonus` : '// canonical fix';
+    fbBody = s.explain.correct;
+  } else if (s.partial && s.partial.includes(dialId)) {
+    verdict = 'partial';
+    points = 4;
+    state.partial++; state.streak = 0;
+    fbClass = 'partial';
+    fbVerdict = `+${points} · CLOSE`;
+    fbSub = '// defensible, but not the cleanest lever';
+    fbBody = s.explain['partial_' + dialId] || s.explain.correct;
+  } else {
+    verdict = 'wrong';
+    points = 0;
+    state.wrong++; state.streak = 0;
+    fbClass = 'wrong';
+    fbVerdict = '+0 · MISDIAGNOSIS';
+    fbSub = '// wrong dial — see why';
+    fbBody = s.explain.wrong + '<br><br><strong>The right move:</strong> ' + s.explain.correct;
+  }
+
+  state.score += points;
+  updateHUD();
+
+  document.querySelectorAll('.dial').forEach(btn => {
+    btn.disabled = true;
+    if (btn.dataset.dial === s.correct) btn.classList.add('correct');
+    else if (btn.dataset.dial === dialId && verdict === 'partial') btn.classList.add('partial');
+    else if (btn.dataset.dial === dialId && verdict === 'wrong') btn.classList.add('wrong');
+  });
+
+  showFeedback(fbClass, fbVerdict, fbSub, fbBody, s.deepDive, false);
+  document.getElementById('btn-next').textContent =
+    state.idx >= LEVELS[state.level].length - 1 ? 'SEE DEBRIEF →' : 'NEXT SCENARIO →';
+}
+
+function handleChainAnswer(dialId, s) {
+  const expectedStep = state.chainState.step;
+  const expectedDial = s.chainCorrect[expectedStep];
+  const isLastStep = state.chainState.step >= s.chainCorrect.length - 1;
+
+  if (dialId === expectedDial) {
+    state.chainState.picks.push(dialId);
+    state.chainState.step++;
+    renderChainProgress(s);
+    state.score += 6;
+    updateHUD();
+
+    if (state.chainState.step >= s.chainCorrect.length) {
+      finalizeChain(s);
+    } else {
+      document.getElementById('dials-header').textContent =
+        `select step ${state.chainState.step + 1} of ${s.chainCorrect.length}`;
+      const stepBody = s.stepExplain[dialId] || '<strong>Good move.</strong> Continue the chain.';
+      showFeedback('step',
+        `+6 · STEP ${state.chainState.step} OF ${s.chainCorrect.length}`,
+        '// good move — continue the chain', stepBody, null, true);
+      setTimeout(() => {
+        document.getElementById('feedback').classList.remove('show','step');
+        renderDials(s);
+      }, 1700);
+    }
+  } else {
+    state.chainState.picks.push(dialId);
+    state.chainState.wrongPicks.push({ step: expectedStep, picked: dialId, expected: expectedDial });
+    state.chainState.step++;
+    renderChainProgress(s);
+    state.score += 1;
+    updateHUD();
+
+    if (state.chainState.step >= s.chainCorrect.length) {
+      finalizeChain(s);
+    } else {
+      document.getElementById('dials-header').textContent =
+        `select step ${state.chainState.step + 1} of ${s.chainCorrect.length}`;
+      showFeedback('partial',
+        `+1 · OUT OF ORDER`,
+        '// not the cleanest sequence — continue',
+        `That can work eventually, but isn't the cleanest order here. The canonical move was <strong>${DIALS[expectedDial].name}</strong>. Keep going — the chain continues.`,
+        null, true);
+      setTimeout(() => {
+        document.getElementById('feedback').classList.remove('show','partial');
+        renderDials(s);
+      }, 2100);
+    }
+  }
+}
+
+function finalizeChain(s) {
+  state.answered = true;
+
+  const picksExact = JSON.stringify(state.chainState.picks) === JSON.stringify(s.chainCorrect);
+  let matchedPartial = false;
+  if (s.chainPartialOrder) {
+    for (const alt of s.chainPartialOrder) {
+      if (JSON.stringify(state.chainState.picks) === JSON.stringify(alt)) { matchedPartial = true; break; }
+    }
+  }
+
+  let fbClass, fbVerdict, fbSub, fbBody;
+  if (picksExact) {
+    const bonus = 12 + state.streak * 2;
+    state.score += bonus;
+    state.correct++; state.streak++;
+    state.bestStreak = Math.max(state.bestStreak, state.streak);
+    fbClass = 'correct';
+    fbVerdict = `+${bonus} · CHAIN PERFECT`;
+    fbSub = state.streak > 1 ? `// streak x${state.streak} · clean order` : '// canonical order';
+    fbBody = s.explain.correct;
+  } else if (matchedPartial || state.chainState.wrongPicks.length <= 1) {
+    state.score += 5;
+    state.partial++; state.streak = 0;
+    fbClass = 'partial';
+    fbVerdict = `+5 · CHAIN DONE · IMPERFECT ORDER`;
+    fbSub = '// right dials, suboptimal sequence';
+    fbBody = (s.explain.partial || s.explain.correct) +
+      `<br><br><strong>The canonical order:</strong> ${s.chainCorrect.map(d => DIALS[d].name).join(' → ')}`;
+  } else {
+    state.wrong++; state.streak = 0;
+    fbClass = 'wrong';
+    fbVerdict = '+0 · CHAIN MISORDERED';
+    fbSub = '// the sequence matters — see why';
+    fbBody = (s.explain.wrong || '') +
+      `<br><br><strong>The canonical order:</strong> ${s.chainCorrect.map(d => DIALS[d].name).join(' → ')}`;
+  }
+
+  updateHUD();
+
+  // mark dials
+  document.querySelectorAll('.dial').forEach(btn => { btn.disabled = true; });
+
+  showFeedback(fbClass, fbVerdict, fbSub, fbBody, s.deepDive, false);
+  document.getElementById('btn-next').textContent =
+    state.idx >= LEVELS[state.level].length - 1 ? 'SEE DEBRIEF →' : 'NEXT SCENARIO →';
+}
+
+/* ───────── NAVIGATION ───────── */
+function nextScenario() {
+  if (state.idx >= LEVELS[state.level].length - 1) { showEnd(); return; }
+  state.idx++;
+  renderScenario();
+  updateHUD();
+}
+
+async function showEnd() {
+  document.getElementById('scenario').style.display = 'none';
+  document.querySelector('.dials-wrap').style.display = 'none';
+  document.getElementById('feedback').classList.remove('show');
+  document.getElementById('endscreen').classList.add('show');
+
+  const total = LEVELS[state.level].length;
+  const grade = calculateGrade(state.correct, state.partial, state.wrong, total);
+  const meta = LEVEL_META[state.level];
+  const passed = gradeMeetsPass(grade);
+
+  const prevGrade = progress.levelGrades[state.level];
+  if (!prevGrade || GRADE_RANK[grade] > GRADE_RANK[prevGrade]) {
+    progress.levelGrades[state.level] = grade;
+  }
+  let isNewUnlock = false;
+  if (passed && state.level + 1 > progress.unlockedLevel && state.level + 1 < LEVELS.length) {
+    progress.unlockedLevel = state.level + 1;
+    isNewUnlock = true;
+  }
+  await saveProgress(progress);
+
+  document.getElementById('end-title').textContent =
+    passed ? `LEVEL ${meta.num} COMPLETE` : `LEVEL ${meta.num} · TRY AGAIN`;
+  document.getElementById('end-grade').textContent = grade;
+  document.getElementById('end-correct').textContent = state.correct;
+  document.getElementById('end-partial').textContent = state.partial;
+  document.getElementById('end-wrong').textContent = state.wrong;
+  document.getElementById('end-best').textContent = state.bestStreak;
+
+  const unlockEl = document.getElementById('unlock-msg');
+  if (isNewUnlock) {
+    unlockEl.textContent = `✦ LEVEL ${meta.num + 1} · ${LEVEL_META[state.level + 1].name} UNLOCKED ✦`;
+    unlockEl.style.display = 'block';
+  } else if (state.level + 1 >= LEVELS.length && passed) {
+    unlockEl.textContent = `✦ ALL LEVELS CLEARED · YOU'VE GOT THE INSTINCTS ✦`;
+    unlockEl.style.display = 'block';
+  } else {
+    unlockEl.style.display = 'none';
+  }
+
+  let summary;
+  if (grade === 'S') summary = `Flawless. ${meta.name.toLowerCase()}-tier instincts: you read traces precisely and picked the cleanest lever every time.`;
+  else if (grade === 'A') summary = `Strong. You diagnosed cleanly with maybe one soft call. ${passed ? 'Next level unlocked.' : ''}`;
+  else if (grade === 'B') summary = `Solid. ${passed ? 'Cleared the bar.' : 'Just short — retry to lock it in.'} Watch for reaching at blunt instruments before reading the trace.`;
+  else if (grade === 'C') summary = `Mixed. Re-run this level — pay attention to <em>what the trace is telling you</em> before picking a fix.`;
+  else if (grade === 'D') summary = `Reset. Key heuristic: ask "what does the trace say?" and "what changed in the last 7 days?" <em>before</em> turning any dial.`;
+  else summary = `Wipe and run it back. Focus on the trace lines marked WARN and ERR — they tell you which branch of the tree you're on.`;
+  document.getElementById('end-summary').innerHTML = summary;
+
+  const nextBtn = document.getElementById('btn-next-level');
+  if (passed && state.level + 1 < LEVELS.length) {
+    nextBtn.style.display = '';
+    nextBtn.textContent = `LEVEL ${meta.num + 1} →`;
+  } else {
+    nextBtn.style.display = 'none';
+  }
+
+  renderLevelSelect();
+}
+
+function updateHUD() {
+  const meta = LEVEL_META[state.level];
+  document.getElementById('hud-level').textContent = meta.num;
+  document.getElementById('hud-round').textContent =
+    `${Math.min(state.idx + 1, LEVELS[state.level].length)}/${LEVELS[state.level].length}`;
+  document.getElementById('hud-streak').textContent = state.streak;
+  document.getElementById('hud-score').textContent = state.score;
+}
+
+/* ───────── WIRING ───────── */
+document.getElementById('btn-next').addEventListener('click', nextScenario);
+document.getElementById('btn-quit').addEventListener('click', showLevelSelect);
+document.getElementById('btn-menu').addEventListener('click', showLevelSelect);
+document.getElementById('btn-retry').addEventListener('click', () => startLevel(state.level));
+document.getElementById('btn-next-level').addEventListener('click', () => {
+  if (state.level + 1 < LEVELS.length) startLevel(state.level + 1);
+});
+document.getElementById('btn-reset-progress').addEventListener('click', async () => {
+  if (confirm('Reset all progress? This clears unlocked levels and grades.')) {
+    progress = { unlockedLevel: 0, levelGrades: [null,null,null,null,null] };
+    await saveProgress(progress);
+    renderLevelSelect();
+  }
+});
+document.getElementById('deep-dive-toggle').addEventListener('click', () => {
+  document.getElementById('deep-dive').classList.toggle('open');
+});
+
+document.addEventListener('keydown', (e) => {
+  const stageVisible = document.getElementById('stage').classList.contains('show');
+  const endVisible = document.getElementById('endscreen').classList.contains('show');
+
+  if (e.key >= '1' && e.key <= '9' && stageVisible && !endVisible) {
+    const btn = document.querySelector(`.dial[data-key="${e.key}"]`);
+    if (btn && !btn.disabled) btn.click();
+  } else if (e.key === 'Enter') {
+    if (state.answered && stageVisible && !endVisible) {
+      document.getElementById('btn-next').click();
+    } else if (endVisible) {
+      const nb = document.getElementById('btn-next-level');
+      if (nb.style.display !== 'none') nb.click();
+      else document.getElementById('btn-retry').click();
+    }
+  } else if ((e.key === 'd' || e.key === 'D') && state.answered) {
+    const dd = document.getElementById('deep-dive');
+    if (!dd.classList.contains('hidden')) dd.classList.toggle('open');
+  } else if (e.key === 'Escape') {
+    if (stageVisible) showLevelSelect();
+  }
+});
+
+/* ───────── BOOT ───────── */
+(async function init() {
+  progress = await loadProgress();
+  renderLevelSelect();
+})();
+
+</script>
+
+</body>
+</html>
